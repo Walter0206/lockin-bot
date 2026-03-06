@@ -28,7 +28,9 @@ db.query(`
     today_minutes INTEGER DEFAULT 0,
     current_streak INTEGER DEFAULT 0,
     best_streak INTEGER DEFAULT 0,
-    last_checkin TEXT
+    last_checkin TEXT,
+    freezes_available INTEGER DEFAULT 0,
+    last_freeze_date TEXT
   )
 `)
   .then(() => console.log("✅ Base de données PostgreSQL prête (Table 'users' vérifiée)"))

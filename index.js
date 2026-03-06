@@ -59,18 +59,34 @@ client.on("messageCreate", async (message) => {
     }
 
     try {
-      // INSERT ou UPDATE : si l'utilisateur existe déjà, on additionne ses minutes.
+      // 1. On récupère les minutes actuelles pour le calcul des freezes
+      const { rows } = await db.query(`SELECT total_minutes FROM users WHERE user_id = $1`, [userId]);
+      const oldTotal = rows[0] ? rows[0].total_minutes : 0;
+      const newTotal = oldTotal + minutes;
+
+      // Calcul des freezes gagnés (1 tous les 500 min)
+      const oldFreezes = Math.floor(oldTotal / 500);
+      const newFreezes = Math.floor(newTotal / 500);
+      const earned = newFreezes - oldFreezes;
+
+      // 2. INSERT ou UPDATE
       await db.query(
-        `INSERT INTO users (user_id, total_minutes, week_minutes, today_minutes)
-         VALUES ($1, $2, $2, $2)
+        `INSERT INTO users (user_id, total_minutes, week_minutes, today_minutes, freezes_available)
+         VALUES ($1, $2, $2, $2, $3)
          ON CONFLICT(user_id)
          DO UPDATE SET
            total_minutes = users.total_minutes + $2,
            week_minutes  = users.week_minutes  + $2,
-           today_minutes = users.today_minutes + $2`,
-        [userId, minutes]
+           today_minutes = users.today_minutes + $2,
+           freezes_available = users.freezes_available + $3`,
+        [userId, minutes, earned]
       );
-      message.reply(`🧠 Deep work ajouté : ${minutes} minutes`);
+
+      let rewardMsg = `🧠 Deep work ajouté : ${minutes} minutes`;
+      if (earned > 0) {
+        rewardMsg += `\n❄️ Bravo ! Tu as gagné **${earned} Streak Freeze(s)** ! (Total : ${newFreezes})`;
+      }
+      message.reply(rewardMsg);
     } catch (err) {
       console.error("Erreur !deep :", err);
       message.reply("❌ Une erreur est survenue.");
@@ -104,10 +120,16 @@ client.on("messageCreate", async (message) => {
       // Calcul du nouveau streak
       let streak = 1;
       if (row && row.last_checkin) {
-        const last = new Date(row.last_checkin);
-        const diff = (Date.now() - last) / (1000 * 60 * 60 * 24);
-        if (diff <= 1.5) {
+        // On crée une date pour "hier" en format YYYY-MM-DD
+        const yesterdayDate = new Date();
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterday = yesterdayDate.toISOString().split("T")[0];
+
+        if (row.last_checkin === yesterday) {
           streak = row.current_streak + 1;
+        } else {
+          // Le streak est brisé
+          streak = 1;
         }
       }
 
@@ -122,7 +144,7 @@ client.on("messageCreate", async (message) => {
         [userId, streak, today]
       );
 
-      message.reply(`🔥 Streak : ${streak} jours`);
+      message.reply(`🔥 Streak : ${streak} jours (Glace restante : ❄️ ${row ? row.freezes_available : 0})`);
     } catch (err) {
       console.error("Erreur !done :", err);
       message.reply("❌ Une erreur est survenue.");
@@ -146,7 +168,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.get("/api/stats", async (req, res) => {
   try {
     const { rows } = await db.query(`
-      SELECT user_id, total_minutes, current_streak, last_checkin
+      SELECT user_id, total_minutes, current_streak, last_checkin, freezes_available
       FROM users
       ORDER BY total_minutes DESC
       LIMIT 10
@@ -155,6 +177,68 @@ app.get("/api/stats", async (req, res) => {
   } catch (err) {
     console.error("Erreur API stats :", err);
     res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+
+// ============================================================
+// TÂCHE AUTOMATIQUE : STREAK FREEZE À 23H59
+// ============================================================
+
+cron.schedule("59 23 * * *", async () => {
+  const today = new Date().toISOString().split("T")[0];
+
+  try {
+    // On cherche les utilisateurs qui n'ont pas fait !done aujourd'hui MAIS qui ont un streak actif
+    const { rows } = await db.query(`
+      SELECT * FROM users 
+      WHERE (last_checkin IS NULL OR last_checkin != $1)
+      AND current_streak > 0
+    `, [today]);
+
+    for (const user of rows) {
+      if (user.freezes_available > 0) {
+        try {
+          // Consommation du freeze et MAJ de la date de check-in / date de dernier freeze
+          await db.query(`
+            UPDATE users 
+            SET freezes_available = freezes_available - 1,
+                last_checkin = $1,
+                last_freeze_date = $1
+            WHERE user_id = $2
+          `, [today, user.user_id]);
+
+          // Notification par DM
+          const u = await client.users.fetch(user.user_id);
+          await u.send(
+            `❄️ **STREAK FREEZE AUTOMATIQUE** ❄️\n\nTu as oublié de valider ta journée aujourd'hui, mais pas de panique ! J'ai utilisé l'un de tes freezes pour sauver ton streak de **${user.current_streak} jours**.\n\nIl te reste **${user.freezes_available - 1}** freeze(s). Continue comme ça, ne lâche rien ! 💪`
+          );
+          console.log(`❄️ Freeze automatique utilisé pour ${user.user_id}`);
+        } catch (err) {
+          console.error(`Erreur freeze auto pour ${user.user_id}:`, err);
+        }
+      } else {
+        try {
+          // Pas de freeze disponible -> Perte du streak
+          await db.query(`
+            UPDATE users 
+            SET current_streak = 0
+            WHERE user_id = $1
+          `, [user.user_id]);
+
+          // Notification par DM
+          const u = await client.users.fetch(user.user_id);
+          await u.send(
+            `💔 **STREAK PERDU** 💔\n\nTu n'as pas validé ta journée aujourd'hui et tu n'avais plus de ❄️ Streak Freeze...\nTon streak de **${user.current_streak} jours** retombe à 0. C'est le moment d'en démarrer un nouveau dès demain, on recommence sur de bonnes bases ! 💪`
+          );
+          console.log(`💔 Streak cassé pour ${user.user_id}`);
+        } catch (err) {
+          console.error(`Erreur reset streak pour ${user.user_id}:`, err);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Erreur globale Auto-Freeze :", err);
   }
 });
 

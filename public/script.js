@@ -28,7 +28,7 @@ async function fetchStats() {
                 <div class="rank">#${index + 1}</div>
                 <div class="user-info">
                     <span class="user-id">Utilisateur ${user.user_id.slice(-4)}</span>
-                    <span class="streak">🔥 Streak : ${user.current_streak} jours</span>
+                    <span class="streak">🔥 ${user.current_streak} jours | ❄️ ${user.freezes_available} freezes</span>
                 </div>
                 <div class="time">${timeStr}</div>
             `;
