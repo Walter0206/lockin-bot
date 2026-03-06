@@ -33,7 +33,15 @@ db.query(`
     last_freeze_date TEXT
   )
 `)
-  .then(() => console.log("✅ Base de données PostgreSQL prête (Table 'users' vérifiée)"))
+  .then(() => {
+    console.log("✅ Base de données PostgreSQL prête (Table 'users' vérifiée)");
+    // S'assurer que les nouvelles colonnes existent si la table a été créée avant la fonctionnalité de Freeze
+    return db.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS freezes_available INTEGER DEFAULT 0;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_freeze_date TEXT;
+    `);
+  })
+  .then(() => console.log("✅ Colonnes de Streak Freeze vérifiées."))
   .catch(err => console.error("❌ Erreur critique lors de la connexion/création de la table :", err));
 
 module.exports = db;

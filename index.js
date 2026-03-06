@@ -89,7 +89,7 @@ client.on("messageCreate", async (message) => {
       message.reply(rewardMsg);
     } catch (err) {
       console.error("Erreur !deep :", err);
-      message.reply("❌ Une erreur est survenue.");
+      message.reply("❌ Une erreur est survenue : " + err.message);
     }
   }
 
@@ -147,7 +147,7 @@ client.on("messageCreate", async (message) => {
       message.reply(`🔥 Streak : ${streak} jours (Glace restante : ❄️ ${row ? row.freezes_available : 0})`);
     } catch (err) {
       console.error("Erreur !done :", err);
-      message.reply("❌ Une erreur est survenue.");
+      message.reply("❌ Une erreur est survenue : " + err.message);
     }
   }
 
