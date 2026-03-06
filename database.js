@@ -9,10 +9,14 @@ const { Pool } = require("pg");
 
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // SSL obligatoire sur Railway et la plupart des hébergeurs cloud.
-  // "rejectUnauthorized: false" évite les erreurs de certificat auto-signé.
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
+
+if (!process.env.DATABASE_URL) {
+  console.error("❌ ERREUR : La variable DATABASE_URL est manquante ! Assure-toi d'avoir ajouté un service PostgreSQL dans ton projet Railway.");
+} else {
+  console.log("✅ DATABASE_URL détectée, tentative de connexion...");
+}
 
 // Création de la table si elle n'existe pas encore.
 // Même structure qu'avant, juste la syntaxe PostgreSQL (très proche de SQLite).
@@ -26,6 +30,8 @@ db.query(`
     best_streak INTEGER DEFAULT 0,
     last_checkin TEXT
   )
-`).catch(err => console.error("Erreur création table:", err));
+`)
+  .then(() => console.log("✅ Base de données PostgreSQL prête (Table 'users' vérifiée)"))
+  .catch(err => console.error("❌ Erreur critique lors de la connexion/création de la table :", err));
 
 module.exports = db;
