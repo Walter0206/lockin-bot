@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lockin-Bot | Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <main class="dashboard-container">
+        <header>
+            <h1>Lockin-Bot <span>Dashboard</span></h1>
+            <p class="subtitle">Suis tes progrès en temps réel</p>
+        </header>
+
+        <section class="stats-grid">
+            <div class="stat-card glass" id="total-focus">
+                <div class="stat-icon">🕒</div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Focus</span>
+                    <span class="stat-value">--:--</span>
+                </div>
+            </div>
+            <div class="stat-card glass" id="active-users">
+                <div class="stat-icon">🔥</div>
+                <div class="stat-content">
+                    <span class="stat-label">Utilisateurs Actifs</span>
+                    <span class="stat-value">--</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="leaderboard glass">
+            <h2>🏆 Classement Deep Work</h2>
+            <div class="leaderboard-list" id="leaderboard-body">
+                <!-- Les données seront insérées ici par JS -->
+                <div class="loading">Chargement des données...</div>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

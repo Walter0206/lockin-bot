@@ -7,6 +7,8 @@ require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
 const cron = require("node-cron");
 const db = require("./database");
+const express = require("express");
+const path = require("path");
 
 
 // ============================================================
@@ -127,6 +129,38 @@ client.on("messageCreate", async (message) => {
     }
   }
 
+});
+
+
+// ============================================================
+// SERVEUR WEB (DASHBOARD)
+// ============================================================
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Servir les fichiers statiques (notre futur Dashboard)
+app.use(express.static(path.join(__dirname, "public")));
+
+// API : Récupérer les statistiques pour le dashboard
+app.get("/api/stats", async (req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT user_id, total_minutes, current_streak, last_checkin
+      FROM users
+      ORDER BY total_minutes DESC
+      LIMIT 10
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error("Erreur API stats :", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Lancement du serveur web
+app.listen(PORT, () => {
+  console.log(`✅ Dashboard accessible sur http://localhost:${PORT}`);
 });
 
 
