@@ -10,6 +10,18 @@ const db = require("./database");
 const express = require("express");
 const path = require("path");
 
+// ============================================================
+// CONFIGURATION DES RÔLES DE STREAK
+// ============================================================
+
+// Les rôles doivent être classés du plus grand nombre de jours au plus petit !
+const ROLE_THRESHOLDS = [
+  { days: 30, id: "1479824619518033942", name: "Légende" },
+  { days: 14, id: "1479824521014939728", name: "On fire" },
+  { days: 7, id: "1479824430443008232", name: "Engagé" },
+  { days: 3, id: "1479824330857779312", name: "Régulier" },
+  { days: 1, id: "1479823817856778444", name: "Débutant" }
+];
 
 // ============================================================
 // CRÉATION DU BOT
@@ -144,6 +156,37 @@ client.on("messageCreate", async (message) => {
         [userId, streak, today]
       );
 
+      // --- LOGIQUE D'ATTRIBUTION DES RÔLES ---
+      try {
+        if (message.member) {
+          const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
+
+          if (targetRole) {
+            // Est-ce qu'il a déjà le rôle ?
+            const hasRole = message.member.roles.cache.has(targetRole.id);
+            if (!hasRole) {
+              await message.member.roles.add(targetRole.id);
+            }
+
+            // On retire tous les autres rôles de streak inférieurs ou supérieurs
+            for (const r of ROLE_THRESHOLDS) {
+              if (r.id !== targetRole.id && message.member.roles.cache.has(r.id)) {
+                await message.member.roles.remove(r.id);
+              }
+            }
+          } else {
+            // Pas ou plus éligible à un rôle (streak = 0)
+            for (const r of ROLE_THRESHOLDS) {
+              if (message.member.roles.cache.has(r.id)) {
+                await message.member.roles.remove(r.id);
+              }
+            }
+          }
+        }
+      } catch (roleErr) {
+        console.error("Erreur d'attribution des rôles (!done):", roleErr);
+      }
+
       message.reply(`🔥 Streak : ${streak} jours (Glace restante : ❄️ ${row ? row.freezes_available : 0})`);
     } catch (err) {
       console.error("Erreur !done :", err);
@@ -225,6 +268,23 @@ cron.schedule("59 23 * * *", async () => {
             SET current_streak = 0
             WHERE user_id = $1
           `, [user.user_id]);
+
+          // --- RETRAIT DE TOUS LES RÔLES DE STREAK ---
+          try {
+            const guild = client.guilds.cache.first();
+            if (guild) {
+              const member = await guild.members.fetch(user.user_id).catch(() => null);
+              if (member) {
+                for (const r of ROLE_THRESHOLDS) {
+                  if (member.roles.cache.has(r.id)) {
+                    await member.roles.remove(r.id);
+                  }
+                }
+              }
+            }
+          } catch (roleErr) {
+            console.error("Erreur retrait rôle auto (cron):", roleErr);
+          }
 
           // Notification par DM
           const u = await client.users.fetch(user.user_id);
