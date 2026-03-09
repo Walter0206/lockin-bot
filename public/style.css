@@ -67,8 +67,15 @@ body {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 header {
@@ -202,7 +209,8 @@ h2 {
 
 .time {
     font-weight: 700;
-    color: #ffd700; /* Gold */
+    color: #ffd700;
+    /* Gold */
 }
 
 /* Loading state */
@@ -216,5 +224,27 @@ h2 {
 @media (max-width: 600px) {
     .stats-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* Live Active Pulse Animation */
+.stat-card.live-active {
+    border-color: rgba(99, 102, 241, 0.5);
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+    animation: pulseGlow 2s infinite alternate;
+}
+
+.stat-card.live-active .stat-icon {
+    background: rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+@keyframes pulseGlow {
+    0% {
+        box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+    }
+
+    100% {
+        box-shadow: 0 0 25px rgba(99, 102, 241, 0.6);
     }
 }

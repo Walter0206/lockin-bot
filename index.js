@@ -267,13 +267,26 @@ app.use(express.static(path.join(__dirname, "public")));
 // API : Récupérer les statistiques pour le dashboard
 app.get("/api/stats", async (req, res) => {
   try {
-    const { rows } = await db.query(`
+    const { rows: leaderboardRows } = await db.query(`
       SELECT user_id, total_minutes, current_streak, last_checkin, freezes_available
       FROM users
       ORDER BY total_minutes DESC
       LIMIT 10
     `);
-    res.json(rows);
+
+    // Nouvelle requête pour compter les sessions actives (deepwork en cours)
+    const { rows: countRows } = await db.query(`
+      SELECT COUNT(*) AS active_count 
+      FROM users 
+      WHERE session_start IS NOT NULL
+    `);
+
+    const activeCount = parseInt(countRows[0].active_count, 10);
+
+    res.json({
+      leaderboard: leaderboardRows,
+      activeCount: activeCount
+    });
   } catch (err) {
     console.error("Erreur API stats :", err);
     res.status(500).json({ error: "Erreur serveur" });

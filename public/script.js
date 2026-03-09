@@ -7,7 +7,7 @@ async function fetchStats() {
         const totalFocusValue = document.querySelector('#total-focus .stat-value');
         const activeUsersValue = document.querySelector('#active-users .stat-value');
 
-        if (data.length === 0) {
+        if (!data.leaderboard || data.leaderboard.length === 0) {
             leaderboardBody.innerHTML = '<div class="loading">Aucune donnée pour le moment. Allez bosser ! 🧠</div>';
             return;
         }
@@ -15,7 +15,7 @@ async function fetchStats() {
         let totalMinutes = 0;
         leaderboardBody.innerHTML = '';
 
-        data.forEach((user, index) => {
+        data.leaderboard.forEach((user, index) => {
             totalMinutes += user.total_minutes;
 
             const hours = Math.floor(user.total_minutes / 60);
@@ -37,7 +37,14 @@ async function fetchStats() {
 
         // Update stats summary
         totalFocusValue.innerText = `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
-        activeUsersValue.innerText = data.length;
+        activeUsersValue.innerText = data.activeCount;
+
+        // Ajouter un effet visuel si des gens travaillent
+        if (data.activeCount > 0) {
+            activeUsersValue.parentElement.parentElement.classList.add('live-active');
+        } else {
+            activeUsersValue.parentElement.parentElement.classList.remove('live-active');
+        }
 
     } catch (error) {
         console.error('Erreur lors de la récupération des stats:', error);
