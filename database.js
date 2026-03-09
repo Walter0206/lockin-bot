@@ -33,7 +33,8 @@ db.query(`
     last_freeze_date TEXT,
     checkin_date TEXT,
     checkout_date TEXT,
-    session_start TEXT
+    session_start TEXT,
+    current_priority TEXT
   )
 `)
   .then(() => {
@@ -45,6 +46,7 @@ db.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS checkin_date TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS checkout_date TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS session_start TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS current_priority TEXT;
     `);
   })
   .then(() => console.log("✅ Colonnes de Streak Freeze vérifiées."))

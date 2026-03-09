@@ -81,13 +81,22 @@ client.on("messageCreate", async (message) => {
     }
 
     try {
-      await db.query(
+      // On insère le checkin_date, mais on veut aussi lire la priorité
+      const { rows } = await db.query(
         `INSERT INTO users (user_id, checkin_date) 
          VALUES ($1, $2)
-         ON CONFLICT (user_id) DO UPDATE SET checkin_date = $2`,
+         ON CONFLICT (user_id) DO UPDATE SET checkin_date = $2
+         RETURNING current_priority`,
         [userId, isoDate]
       );
-      message.reply("✅ Check-in validé ! Bon courage pour tes priorités du jour. N'oublie pas de lancer `!start` quand tu commences à travailler en Deep Work.");
+
+      const priority = rows[0]?.current_priority;
+
+      if (priority) {
+        message.reply(`✅ Check-in validé ! Rappel de ta priorité du jour : **${priority}**. Au boulot ! (Tape \`!start\` quand tu commences)`);
+      } else {
+        message.reply("✅ Check-in validé ! Bon courage pour tes objectifs du jour. N'oublie pas de lancer `!start` quand tu commences en Deep Work.");
+      }
     } catch (err) {
       console.error("Erreur !checkin :", err);
       message.reply("❌ Une erreur est survenue : " + err.message);
@@ -189,65 +198,80 @@ client.on("messageCreate", async (message) => {
         return message.reply(`✅ Tu as déjà fait ton check-out aujourd'hui ! Streak actuel : 🔥 ${user.current_streak} jours`);
       }
 
-      // VÉRIFICATION DES CONDITIONS DE STREAK
-      // 1. Check-in fait aujourd'hui
+      // VÉRIFICATION DES CONDITIONS DE STREAK (Pré-calcul)
       const hasCheckedIn = user.checkin_date === isoDate;
-      // 2. Au moins 1 minute travaillée aujourd'hui
       const hasWorked = user.today_minutes > 0;
 
       let streak = user.current_streak || 0;
       let streakMessage = "";
 
-      if (hasCheckedIn && hasWorked) {
-        // Condition remplie !
-        const yesterdayDate = new Date();
-        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-        const yesterday = formatInTimeZone(yesterdayDate, TIMEZONE, "yyyy-MM-dd");
+      // QUESTION DE LA PRIORITÉ
+      message.reply("C'est noté ! Quelle est ta priorité pour demain ? (Tu as 60 secondes pour répondre dans ce salon)");
 
-        if (user.checkout_date === yesterday || streak === 0) {
-          streak += 1; // +1 si check-out fait hier ou reprise à 1
-        } else {
-          streak = 1; // Le streak avait été brisé auparavant
-        }
-        streakMessage = `✅ Conditions remplies ! Ton streak monte à 🔥 **${streak} jours** !`;
-      } else {
-        // Conditions non remplies, perte du streak immédiate ou conservation de freeze (géré par le cron, on stocke juste l'état)
-        streakMessage = `⚠️ Tu fais ton check-out, mais tu n'as pas rempli les devoirs du jour (Check-in ce matin ET temps de travail). Ton streak ne montera pas.`;
-      }
+      // Création du filtre pour le collecteur de messages
+      const filter = (m) => m.author.id === userId;
 
-      // Sauvegarde
-      await db.query(`
-        UPDATE users 
-        SET checkout_date = $1,
-            current_streak = $2,
-            last_checkin = $1
-        WHERE user_id = $3
-      `, [isoDate, streak, userId]);
-
-      // --- LOGIQUE D'ATTRIBUTION DES RÔLES ---
       try {
-        if (message.member && streak > 0 && hasCheckedIn && hasWorked) {
-          const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
-          if (targetRole) {
-            const hasRole = message.member.roles.cache.has(targetRole.id);
-            if (!hasRole) await message.member.roles.add(targetRole.id);
+        // On attend UN seul message correspondant au filtre, pendant 60 secondes max
+        const collected = await message.channel.awaitMessages({ filter, max: 1, time: 60000, errors: ['time'] });
+        const priorityMessage = collected.first();
+        const userPriority = priorityMessage.content;
 
-            for (const r of ROLE_THRESHOLDS) {
-              if (r.id !== targetRole.id && message.member.roles.cache.has(r.id)) {
-                await message.member.roles.remove(r.id);
+        // Si on arrive ici, l'utilisateur a répondu à temps !
+        if (hasCheckedIn && hasWorked) {
+          const yesterdayDate = new Date();
+          yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+          const yesterday = formatInTimeZone(yesterdayDate, TIMEZONE, "yyyy-MM-dd");
+
+          if (user.checkout_date === yesterday || streak === 0) {
+            streak += 1;
+          } else {
+            streak = 1;
+          }
+          streakMessage = `✅ Conditions remplies ! Ton streak monte à 🔥 **${streak} jours** !`;
+        } else {
+          streakMessage = `⚠️ Tu fais ton check-out, mais tu n'as pas rempli les devoirs du jour (Check-in ce matin ET temps de travail). Ton streak ne montera pas.`;
+        }
+
+        // Sauvegarde PENDANT le check-out
+        await db.query(`
+          UPDATE users 
+          SET checkout_date = $1,
+              current_streak = $2,
+              last_checkin = $1,
+              current_priority = $3
+          WHERE user_id = $4
+        `, [isoDate, streak, userPriority, userId]);
+
+        // --- LOGIQUE D'ATTRIBUTION DES RÔLES ---
+        try {
+          if (message.member && streak > 0 && hasCheckedIn && hasWorked) {
+            const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
+            if (targetRole) {
+              const hasRole = message.member.roles.cache.has(targetRole.id);
+              if (!hasRole) await message.member.roles.add(targetRole.id);
+
+              for (const r of ROLE_THRESHOLDS) {
+                if (r.id !== targetRole.id && message.member.roles.cache.has(r.id)) {
+                  await message.member.roles.remove(r.id);
+                }
               }
             }
           }
+        } catch (roleErr) {
+          console.error("Erreur rôles (!checkout):", roleErr);
         }
-      } catch (roleErr) {
-        console.error("Erreur rôles (!checkout):", roleErr);
-      }
 
-      message.reply(`${streakMessage}\nBonne nuit et à demain !`);
+        priorityMessage.reply(`${streakMessage}\nTa priorité "**${userPriority}**" est bien enregistrée. Bonne nuit et à demain !`);
+
+      } catch (timeout) {
+        // L'utilisateur n'a pas répondu en 60 secondes
+        return message.channel.send(`<@${userId}> ⏱️ Temps écoulé (60 secondes). Ton Check-out a été annulé car tu n'as pas donné ta priorité. Merci de retaper \`!checkout\` quand tu seras prêt !`);
+      }
 
     } catch (err) {
       console.error("Erreur !checkout :", err);
-      message.reply("❌ Une erreur est survenue : " + err.message);
+      message.reply("❌ Une erreur interne est survenue : " + err.message);
     }
   }
 
