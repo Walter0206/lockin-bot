@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="background-blobs">
         <div class="blob blob-1"></div>
@@ -17,36 +19,47 @@
 
     <main class="dashboard-container">
         <header>
-            <h1>Lockin-Bot <span>Dashboard</span></h1>
-            <p class="subtitle">Suis tes progrès en temps réel</p>
+            <h1>Med in <span>Belgium</span></h1>
+            <p class="subtitle">On construit la santé de demain, calmement, avec conscience professionnelle.</p>
         </header>
 
-        <section class="stats-grid">
-            <div class="stat-card glass" id="total-focus">
-                <div class="stat-icon">🕒</div>
-                <div class="stat-content">
-                    <span class="stat-label">Total Focus</span>
-                    <span class="stat-value">--:--</span>
-                </div>
-            </div>
-            <div class="stat-card glass" id="active-users">
-                <div class="stat-icon">🔥</div>
-                <div class="stat-content">
-                    <span class="stat-label">Utilisateurs Actifs</span>
-                    <span class="stat-value">--</span>
-                </div>
+        <section class="activity-panel glass">
+            <h2>🔴 Activité en Direct</h2>
+            <div class="active-badge" id="active-pulse">
+                <div class="pulse-ring"></div>
+                <div class="pulse-core"></div>
+                <span id="active-count">0</span> membre(s) en Deep Work
             </div>
         </section>
 
-        <section class="leaderboard glass">
-            <h2>🏆 Classement Deep Work</h2>
-            <div class="leaderboard-list" id="leaderboard-body">
-                <!-- Les données seront insérées ici par JS -->
-                <div class="loading">Chargement des données...</div>
+        <section class="global-stats-panel glass">
+            <h2>🌍 Temps de travail de la Communauté</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Aujourd'hui</div>
+                    <div class="stat-value" id="stat-today">--h --m</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Cette semaine</div>
+                    <div class="stat-value" id="stat-week">--h --m</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Ce mois-ci</div>
+                    <div class="stat-value" id="stat-month">--h --m</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Cette année</div>
+                    <div class="stat-value" id="stat-year">--h --m</div>
+                </div>
+                <div class="stat-card highlight">
+                    <div class="stat-label">Historique Global</div>
+                    <div class="stat-value" id="stat-alltime">--h --m</div>
+                </div>
             </div>
         </section>
     </main>
 
     <script src="script.js"></script>
 </body>
+
 </html>

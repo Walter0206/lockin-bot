@@ -3,47 +3,42 @@ async function fetchStats() {
         const response = await fetch('/api/stats');
         const data = await response.json();
 
-        const leaderboardBody = document.getElementById('leaderboard-body');
-        const totalFocusValue = document.querySelector('#total-focus .stat-value');
-        const activeUsersValue = document.querySelector('#active-users .stat-value');
+        // DOM Elements
+        const activeUsersCount = document.getElementById('active-count');
+        const activePulse = document.getElementById('active-pulse');
+        const statToday = document.getElementById('stat-today');
+        const statWeek = document.getElementById('stat-week');
+        const statMonth = document.getElementById('stat-month');
+        const statYear = document.getElementById('stat-year');
+        const statAllTime = document.getElementById('stat-alltime');
 
-        if (!data.leaderboard || data.leaderboard.length === 0) {
-            leaderboardBody.innerHTML = '<div class="loading">Aucune donnée pour le moment. Allez bosser ! 🧠</div>';
-            return;
+        // Helper function to format minutes into "Xh Ym"
+        const formatTime = (totalMinutes) => {
+            if (!totalMinutes || totalMinutes === 0) return "0h 0m";
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            return `${hours}h ${minutes}m`;
+        };
+
+        // Mettre à jour les stats globales de la communauté
+        if (data.globalStats) {
+            statToday.innerText = formatTime(data.globalStats.today);
+            statWeek.innerText = formatTime(data.globalStats.week);
+            statMonth.innerText = formatTime(data.globalStats.month);
+            statYear.innerText = formatTime(data.globalStats.year);
+            statAllTime.innerText = formatTime(data.globalStats.allTime);
         }
 
-        let totalMinutes = 0;
-        leaderboardBody.innerHTML = '';
+        // Mettre à jour le compteur d'utilisateurs en direct
+        if (data.activeCount !== undefined) {
+            activeUsersCount.innerText = data.activeCount;
 
-        data.leaderboard.forEach((user, index) => {
-            totalMinutes += user.total_minutes;
-
-            const hours = Math.floor(user.total_minutes / 60);
-            const minutes = user.total_minutes % 60;
-            const timeStr = `${hours}h ${minutes}m`;
-
-            const entry = document.createElement('div');
-            entry.className = 'entry';
-            entry.innerHTML = `
-                <div class="rank">#${index + 1}</div>
-                <div class="user-info">
-                    <span class="user-id">Utilisateur ${user.user_id.slice(-4)}</span>
-                    <span class="streak">🔥 ${user.current_streak} jours | ❄️ ${user.freezes_available} freezes</span>
-                </div>
-                <div class="time">${timeStr}</div>
-            `;
-            leaderboardBody.appendChild(entry);
-        });
-
-        // Update stats summary
-        totalFocusValue.innerText = `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
-        activeUsersValue.innerText = data.activeCount;
-
-        // Ajouter un effet visuel si des gens travaillent
-        if (data.activeCount > 0) {
-            activeUsersValue.parentElement.parentElement.classList.add('live-active');
-        } else {
-            activeUsersValue.parentElement.parentElement.classList.remove('live-active');
+            // Ajouter/Retirer l'effet visuel de pulsation si quelqu'un travaille
+            if (data.activeCount > 0) {
+                activePulse.classList.add('live-active');
+            } else {
+                activePulse.classList.remove('live-active');
+            }
         }
 
     } catch (error) {

@@ -157,6 +157,8 @@ client.on("messageCreate", async (message) => {
       await db.query(`
         UPDATE users 
         SET total_minutes = total_minutes + $1,
+            year_minutes = year_minutes + $1,
+            month_minutes = month_minutes + $1,
             week_minutes = week_minutes + $1,
             today_minutes = today_minutes + $1,
             freezes_available = freezes_available + $2,
@@ -288,14 +290,18 @@ const PORT = process.env.PORT || 3000;
 // Servir les fichiers statiques (notre futur Dashboard)
 app.use(express.static(path.join(__dirname, "public")));
 
-// API : Récupérer les statistiques pour le dashboard
+// API : Récupérer les statistiques globales de la communauté (Dashboard MIB)
 app.get("/api/stats", async (req, res) => {
   try {
-    const { rows: leaderboardRows } = await db.query(`
-      SELECT user_id, total_minutes, current_streak, last_checkin, freezes_available
+    // Somme totale de tous les temps de la communauté
+    const { rows: statsRows } = await db.query(`
+      SELECT 
+        SUM(today_minutes) AS today,
+        SUM(week_minutes) AS week,
+        SUM(month_minutes) AS month,
+        SUM(year_minutes) AS year,
+        SUM(total_minutes) AS all_time 
       FROM users
-      ORDER BY total_minutes DESC
-      LIMIT 10
     `);
 
     // Nouvelle requête pour compter les sessions actives (deepwork en cours)
@@ -305,10 +311,17 @@ app.get("/api/stats", async (req, res) => {
       WHERE session_start IS NOT NULL
     `);
 
+    const globalStats = statsRows[0];
     const activeCount = parseInt(countRows[0].active_count, 10);
 
     res.json({
-      leaderboard: leaderboardRows,
+      globalStats: {
+        today: parseInt(globalStats.today || 0, 10),
+        week: parseInt(globalStats.week || 0, 10),
+        month: parseInt(globalStats.month || 0, 10),
+        year: parseInt(globalStats.year || 0, 10),
+        allTime: parseInt(globalStats.all_time || 0, 10)
+      },
       activeCount: activeCount
     });
   } catch (err) {
@@ -452,6 +465,34 @@ cron.schedule("0 0 * * 0", async () => {
     console.log("Reset des minutes hebdomadaires");
   } catch (err) {
     console.error("Erreur reset hebdomadaire :", err);
+  }
+});
+
+
+// ============================================================
+// TÂCHE AUTOMATIQUE : RESET MENSUEL (1ER DU MOIS À MINUIT)
+// ============================================================
+
+cron.schedule("0 0 1 * *", async () => {
+  try {
+    await db.query(`UPDATE users SET month_minutes = 0`);
+    console.log("Reset des minutes mensuelles");
+  } catch (err) {
+    console.error("Erreur reset mensuel :", err);
+  }
+});
+
+
+// ============================================================
+// TÂCHE AUTOMATIQUE : RESET ANNUEL (1ER JANVIER À MINUIT)
+// ============================================================
+
+cron.schedule("0 0 1 1 *", async () => {
+  try {
+    await db.query(`UPDATE users SET year_minutes = 0`);
+    console.log("Reset des minutes annuelles");
+  } catch (err) {
+    console.error("Erreur reset annuel :", err);
   }
 });
 
