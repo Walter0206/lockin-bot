@@ -30,7 +30,10 @@ db.query(`
     best_streak INTEGER DEFAULT 0,
     last_checkin TEXT,
     freezes_available INTEGER DEFAULT 0,
-    last_freeze_date TEXT
+    last_freeze_date TEXT,
+    checkin_date TEXT,
+    checkout_date TEXT,
+    session_start TEXT
   )
 `)
   .then(() => {
@@ -39,6 +42,9 @@ db.query(`
     return db.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS freezes_available INTEGER DEFAULT 0;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS last_freeze_date TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS checkin_date TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS checkout_date TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS session_start TEXT;
     `);
   })
   .then(() => console.log("✅ Colonnes de Streak Freeze vérifiées."))

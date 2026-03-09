@@ -9,6 +9,9 @@ const cron = require("node-cron");
 const db = require("./database");
 const express = require("express");
 const path = require("path");
+const { formatInTimeZone, toZonedTime } = require("date-fns-tz");
+
+const TIMEZONE = "Europe/Paris";
 
 // ============================================================
 // CONFIGURATION DES RÔLES DE STREAK
@@ -57,139 +60,193 @@ client.on("messageCreate", async (message) => {
   const userId = message.author.id;
 
 
+  // Fonction utilitaire pour récupérer l'heure de Paris
+  const getParisDateInfo = () => {
+    const now = new Date();
+    const isoDate = formatInTimeZone(now, TIMEZONE, "yyyy-MM-dd"); // ex: 2023-10-25
+    const hourStr = formatInTimeZone(now, TIMEZONE, "HH"); // ex: 08
+    const hour = parseInt(hourStr, 10);
+    return { now, isoDate, hour };
+  };
+
   // -------------------------
-  // COMMANDE DEEP WORK (!deep)
+  // COMMANDE CHECK-IN MATINAL (!checkin)
   // -------------------------
+  if (message.content.startsWith("!checkin")) {
+    const { isoDate, hour } = getParisDateInfo();
 
-  if (message.content.startsWith("!deep")) {
-
-    const minutes = parseInt(message.content.split(" ")[1]);
-
-    if (!minutes) {
-      message.reply("Entre un nombre de minutes. Exemple : !deep 90");
-      return;
+    // Vérification de l'heure (00:00 à 08:59)
+    if (hour >= 9) {
+      return message.reply("❌ Trop tard ! Le check-in matinal n'est disponible qu'entre 00h00 et 08h59 (Heure de Paris).");
     }
 
     try {
-      // 1. On récupère les minutes actuelles pour le calcul des freezes
-      const { rows } = await db.query(`SELECT total_minutes FROM users WHERE user_id = $1`, [userId]);
-      const oldTotal = rows[0] ? rows[0].total_minutes : 0;
-      const newTotal = oldTotal + minutes;
-
-      // Calcul des freezes gagnés (1 tous les 500 min)
-      const oldFreezes = Math.floor(oldTotal / 500);
-      const newFreezes = Math.floor(newTotal / 500);
-      const earned = newFreezes - oldFreezes;
-
-      // 2. INSERT ou UPDATE
       await db.query(
-        `INSERT INTO users (user_id, total_minutes, week_minutes, today_minutes, freezes_available)
-         VALUES ($1, $2, $2, $2, $3)
-         ON CONFLICT(user_id)
-         DO UPDATE SET
-           total_minutes = users.total_minutes + $2,
-           week_minutes  = users.week_minutes  + $2,
-           today_minutes = users.today_minutes + $2,
-           freezes_available = users.freezes_available + $3`,
-        [userId, minutes, earned]
+        `INSERT INTO users (user_id, checkin_date) 
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET checkin_date = $2`,
+        [userId, isoDate]
       );
-
-      let rewardMsg = `🧠 Deep work ajouté : ${minutes} minutes`;
-      if (earned > 0) {
-        rewardMsg += `\n❄️ Bravo ! Tu as gagné **${earned} Streak Freeze(s)** ! (Total : ${newFreezes})`;
-      }
-      message.reply(rewardMsg);
+      message.reply("✅ Check-in validé ! Bon courage pour tes priorités du jour. N'oublie pas de lancer `!start` quand tu commences à travailler en Deep Work.");
     } catch (err) {
-      console.error("Erreur !deep :", err);
+      console.error("Erreur !checkin :", err);
       message.reply("❌ Une erreur est survenue : " + err.message);
     }
   }
 
+  // -------------------------
+  // COMMANDE START TIMER (!start)
+  // -------------------------
+  if (message.content.startsWith("!start")) {
+    try {
+      const { rows } = await db.query(`SELECT session_start FROM users WHERE user_id = $1`, [userId]);
+      if (rows.length > 0 && rows[0].session_start) {
+        return message.reply("⏳ Une session de Deep Work est déjà en cours ! Utilise `!stop` pour l'arrêter.");
+      }
+
+      const isoNow = new Date().toISOString();
+      await db.query(
+        `INSERT INTO users (user_id, session_start) 
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET session_start = $2`,
+        [userId, isoNow]
+      );
+      message.reply("⏱️ Session de Deep Work démarrée ! Reste focus, on lâche rien. Tape `!stop` quand tu as terminé ou que tu fais une pause.");
+    } catch (err) {
+      console.error("Erreur !start :", err);
+      message.reply("❌ Une erreur est survenue : " + err.message);
+    }
+  }
 
   // -------------------------
-  // COMMANDE DONE (STREAK) (!done)
+  // COMMANDE STOP TIMER (!stop)
   // -------------------------
+  if (message.content.startsWith("!stop")) {
+    try {
+      const { rows } = await db.query(`SELECT session_start, total_minutes FROM users WHERE user_id = $1`, [userId]);
 
-  if (message.content === "!done") {
+      if (!rows || rows.length === 0 || !rows[0].session_start) {
+        return message.reply("❌ Aucune session en cours. Tape `!start` pour en lancer une.");
+      }
 
-    // Date du jour au format "YYYY-MM-DD"
-    const today = new Date().toISOString().split("T")[0];
+      const sessionStart = new Date(rows[0].session_start);
+      const diffMs = new Date() - sessionStart;
+      const minutes = Math.floor(diffMs / 60000);
+
+      if (minutes < 1) {
+        // Annuler la session si moins d'1 minute
+        await db.query(`UPDATE users SET session_start = NULL WHERE user_id = $1`, [userId]);
+        return message.reply("⚠️ Session annulée (moins d'une minute écoulée).");
+      }
+
+      const oldTotal = rows[0].total_minutes || 0;
+      const newTotal = oldTotal + minutes;
+      const oldFreezes = Math.floor(oldTotal / 500);
+      const newFreezes = Math.floor(newTotal / 500);
+      const earned = newFreezes - oldFreezes;
+
+      await db.query(`
+        UPDATE users 
+        SET total_minutes = total_minutes + $1,
+            week_minutes = week_minutes + $1,
+            today_minutes = today_minutes + $1,
+            freezes_available = freezes_available + $2,
+            session_start = NULL
+        WHERE user_id = $3
+      `, [minutes, earned, userId]);
+
+      let rewardMsg = `⏸️ Session terminée : **${minutes} minutes** ajoutées !`;
+      if (earned > 0) {
+        rewardMsg += `\n❄️ Bravo ! Tu as franchi un palier et gagné **${earned} Streak Freeze(s)** !`;
+      }
+      message.reply(rewardMsg);
+    } catch (err) {
+      console.error("Erreur !stop :", err);
+      message.reply("❌ Une erreur est survenue : " + err.message);
+    }
+  }
+
+  // -------------------------
+  // COMMANDE CHECK-OUT DU SOIR (!checkout)
+  // -------------------------
+  if (message.content.startsWith("!checkout")) {
+    const { isoDate, hour } = getParisDateInfo();
+
+    // Vérification de l'heure (21:00 à 23:59)
+    if (hour < 21) {
+      return message.reply("❌ Trop tôt ! Le check-out du soir n'est disponible qu'entre 21h00 et 23h59 (Heure de Paris).");
+    }
 
     try {
-      // On récupère les données actuelles de l'utilisateur
-      const { rows } = await db.query(
-        `SELECT * FROM users WHERE user_id = $1`,
-        [userId]
-      );
-      const row = rows[0];
+      const { rows } = await db.query(`SELECT * FROM users WHERE user_id = $1`, [userId]);
+      const user = rows[0];
 
-      // PROTECTION ANTI-DOUBLE STREAK
-      if (row && row.last_checkin === today) {
-        message.reply(`✅ Tu as déjà validé ta journée aujourd'hui ! Streak actuel : 🔥 ${row.current_streak} jours`);
-        return;
+      if (!user) {
+        return message.reply("❌ Utilisateur introuvable.");
       }
 
-      // Calcul du nouveau streak
-      let streak = 1;
-      if (row && row.last_checkin) {
-        // On crée une date pour "hier" en format YYYY-MM-DD
+      if (user.checkout_date === isoDate) {
+        return message.reply(`✅ Tu as déjà fait ton check-out aujourd'hui ! Streak actuel : 🔥 ${user.current_streak} jours`);
+      }
+
+      // VÉRIFICATION DES CONDITIONS DE STREAK
+      // 1. Check-in fait aujourd'hui
+      const hasCheckedIn = user.checkin_date === isoDate;
+      // 2. Au moins 1 minute travaillée aujourd'hui
+      const hasWorked = user.today_minutes > 0;
+
+      let streak = user.current_streak || 0;
+      let streakMessage = "";
+
+      if (hasCheckedIn && hasWorked) {
+        // Condition remplie !
         const yesterdayDate = new Date();
         yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-        const yesterday = yesterdayDate.toISOString().split("T")[0];
+        const yesterday = formatInTimeZone(yesterdayDate, TIMEZONE, "yyyy-MM-dd");
 
-        if (row.last_checkin === yesterday) {
-          streak = row.current_streak + 1;
+        if (user.checkout_date === yesterday || streak === 0) {
+          streak += 1; // +1 si check-out fait hier ou reprise à 1
         } else {
-          // Le streak est brisé
-          streak = 1;
+          streak = 1; // Le streak avait été brisé auparavant
         }
+        streakMessage = `✅ Conditions remplies ! Ton streak monte à 🔥 **${streak} jours** !`;
+      } else {
+        // Conditions non remplies, perte du streak immédiate ou conservation de freeze (géré par le cron, on stocke juste l'état)
+        streakMessage = `⚠️ Tu fais ton check-out, mais tu n'as pas rempli les devoirs du jour (Check-in ce matin ET temps de travail). Ton streak ne montera pas.`;
       }
 
-      // Sauvegarde du nouveau streak
-      await db.query(
-        `INSERT INTO users (user_id, current_streak, last_checkin)
-         VALUES ($1, $2, $3)
-         ON CONFLICT(user_id)
-         DO UPDATE SET
-           current_streak = $2,
-           last_checkin   = $3`,
-        [userId, streak, today]
-      );
+      // Sauvegarde
+      await db.query(`
+        UPDATE users 
+        SET checkout_date = $1,
+            current_streak = $2,
+            last_checkin = $1
+        WHERE user_id = $3
+      `, [isoDate, streak, userId]);
 
       // --- LOGIQUE D'ATTRIBUTION DES RÔLES ---
       try {
-        if (message.member) {
+        if (message.member && streak > 0 && hasCheckedIn && hasWorked) {
           const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
-
           if (targetRole) {
-            // Est-ce qu'il a déjà le rôle ?
             const hasRole = message.member.roles.cache.has(targetRole.id);
-            if (!hasRole) {
-              await message.member.roles.add(targetRole.id);
-            }
+            if (!hasRole) await message.member.roles.add(targetRole.id);
 
-            // On retire tous les autres rôles de streak inférieurs ou supérieurs
             for (const r of ROLE_THRESHOLDS) {
               if (r.id !== targetRole.id && message.member.roles.cache.has(r.id)) {
-                await message.member.roles.remove(r.id);
-              }
-            }
-          } else {
-            // Pas ou plus éligible à un rôle (streak = 0)
-            for (const r of ROLE_THRESHOLDS) {
-              if (message.member.roles.cache.has(r.id)) {
                 await message.member.roles.remove(r.id);
               }
             }
           }
         }
       } catch (roleErr) {
-        console.error("Erreur d'attribution des rôles (!done):", roleErr);
+        console.error("Erreur rôles (!checkout):", roleErr);
       }
 
-      message.reply(`🔥 Streak : ${streak} jours (Glace restante : ❄️ ${row ? row.freezes_available : 0})`);
+      message.reply(`${streakMessage}\nBonne nuit et à demain !`);
+
     } catch (err) {
-      console.error("Erreur !done :", err);
+      console.error("Erreur !checkout :", err);
       message.reply("❌ Une erreur est survenue : " + err.message);
     }
   }
@@ -232,20 +289,21 @@ cron.schedule("59 23 * * *", async () => {
   const today = new Date().toISOString().split("T")[0];
 
   try {
-    // On cherche les utilisateurs qui n'ont pas fait !done aujourd'hui MAIS qui ont un streak actif
+    // On cherche les utilisateurs qui n'ont pas fait de checkout aujourd'hui MAIS qui ont un streak actif
     const { rows } = await db.query(`
       SELECT * FROM users 
-      WHERE (last_checkin IS NULL OR last_checkin != $1)
+      WHERE (checkout_date IS NULL OR checkout_date != $1)
       AND current_streak > 0
     `, [today]);
 
     for (const user of rows) {
       if (user.freezes_available > 0) {
         try {
-          // Consommation du freeze et MAJ de la date de check-in / date de dernier freeze
+          // Consommation du freeze et MAJ des dates pour compenser l'oubli de checkout
           await db.query(`
             UPDATE users 
             SET freezes_available = freezes_available - 1,
+                checkout_date = $1,
                 last_checkin = $1,
                 last_freeze_date = $1
             WHERE user_id = $2
@@ -300,6 +358,14 @@ cron.schedule("59 23 * * *", async () => {
   } catch (err) {
     console.error("Erreur globale Auto-Freeze :", err);
   }
+
+  // RÉINITIALISATION JOURNALIÈRE POUR TOUT LE MONDE À MINUIT
+  try {
+    await db.query(`UPDATE users SET today_minutes = 0, session_start = NULL`);
+    console.log("Remise à zéro de today_minutes et arrêts des chronos oubliés.");
+  } catch (err) {
+    console.error("Erreur reset journalier (23:59) :", err);
+  }
 });
 
 // Lancement du serveur web
@@ -331,10 +397,7 @@ cron.schedule("0 21 * * *", async () => {
         // DM désactivés ou utilisateur introuvable — on passe
       }
     }
-
-    // Remise à zéro des minutes du jour
-    await db.query(`UPDATE users SET today_minutes = 0`);
-
+    // (Auparavant le today_minutes s'effaçait ici à 21h, ce qui faussait le travail du soir. Il est maintenant à 23h59)
   } catch (err) {
     console.error("Erreur rapport quotidien :", err);
   }
