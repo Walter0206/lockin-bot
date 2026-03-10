@@ -505,39 +505,41 @@ cron.schedule("59 23 * * *", async () => {
           console.error(`Erreur freeze auto pour ${user.user_id}:`, err);
         }
       } else {
-        try {
-          // Pas de freeze disponible -> Perte du streak
-          await db.query(`
-            UPDATE users 
-            SET current_streak = 0
-            WHERE user_id = $1
-          `, [user.user_id]);
-
-          // --- RETRAIT DE TOUS LES RÔLES DE STREAK ---
+        if (user.current_streak > 0) {
           try {
-            const guild = client.guilds.cache.first();
-            if (guild) {
-              const member = await guild.members.fetch(user.user_id).catch(() => null);
-              if (member) {
-                for (const r of ROLE_THRESHOLDS) {
-                  if (member.roles.cache.has(r.id)) {
-                    await member.roles.remove(r.id);
+            // Pas de freeze disponible -> Perte du streak
+            await db.query(`
+              UPDATE users 
+              SET current_streak = 0
+              WHERE user_id = $1
+            `, [user.user_id]);
+
+            // --- RETRAIT DE TOUS LES RÔLES DE STREAK ---
+            try {
+              const guild = client.guilds.cache.first();
+              if (guild) {
+                const member = await guild.members.fetch(user.user_id).catch(() => null);
+                if (member) {
+                  for (const r of ROLE_THRESHOLDS) {
+                    if (member.roles.cache.has(r.id)) {
+                      await member.roles.remove(r.id);
+                    }
                   }
                 }
               }
+            } catch (roleErr) {
+              console.error("Erreur retrait rôle auto (cron):", roleErr);
             }
-          } catch (roleErr) {
-            console.error("Erreur retrait rôle auto (cron):", roleErr);
-          }
 
-          // Notification par DM
-          const u = await client.users.fetch(user.user_id);
-          await u.send(
-            `💔 **STREAK PERDU** 💔\n\nTu n'as pas validé ta journée aujourd'hui et tu n'avais plus de ❄️ Streak Freeze...\nTon streak de **${user.current_streak} jours** retombe à 0. C'est le moment d'en démarrer un nouveau dès demain, on recommence sur de bonnes bases ! 💪`
-          );
-          console.log(`💔 Streak cassé pour ${user.user_id}`);
-        } catch (err) {
-          console.error(`Erreur reset streak pour ${user.user_id}:`, err);
+            // Notification par DM
+            const u = await client.users.fetch(user.user_id);
+            await u.send(
+              `💔 **STREAK PERDU** 💔\n\nTu n'as pas validé ta journée aujourd'hui et tu n'avais plus de ❄️ Streak Freeze...\nTon streak de **${user.current_streak} jours** retombe à 0. C'est le moment d'en démarrer un nouveau dès demain, on recommence sur de bonnes bases ! 💪`
+            );
+            console.log(`💔 Streak cassé pour ${user.user_id}`);
+          } catch (err) {
+            console.error(`Erreur reset streak pour ${user.user_id}:`, err);
+          }
         }
       }
     }
