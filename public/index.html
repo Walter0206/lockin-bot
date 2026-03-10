@@ -57,6 +57,49 @@
                 </div>
             </div>
         </section>
+
+        <section id="personal-panel" class="personal-panel glass hidden">
+            <h2>👤 Ton Espace Personnel</h2>
+
+            <div class="personal-top-stats">
+                <div class="pill-stat">
+                    <span class="pill-icon">🔥</span>
+                    <span class="pill-text">Streak <strong id="user-streak">0</strong> jours</span>
+                </div>
+                <div class="pill-stat">
+                    <span class="pill-icon">❄️</span>
+                    <span class="pill-text" id="user-freezes">0</span> freezes
+                </div>
+            </div>
+
+            <div class="priority-box glass">
+                <div class="priority-label">🎯 Priorité du jour</div>
+                <div class="priority-value" id="user-priority">Aucune priorité définie</div>
+            </div>
+
+            <div class="stats-grid personal-grid">
+                <div class="stat-card personal-card">
+                    <div class="stat-label">Aujourd'hui</div>
+                    <div class="stat-value" id="user-today">--h --m</div>
+                </div>
+                <div class="stat-card personal-card">
+                    <div class="stat-label">Cette semaine</div>
+                    <div class="stat-value" id="user-week">--h --m</div>
+                </div>
+                <div class="stat-card personal-card">
+                    <div class="stat-label">Ce mois-ci</div>
+                    <div class="stat-value" id="user-month">--h --m</div>
+                </div>
+                <div class="stat-card personal-card">
+                    <div class="stat-label">Cette année</div>
+                    <div class="stat-value" id="user-year">--h --m</div>
+                </div>
+                <div class="stat-card highlight personal-card">
+                    <div class="stat-label">Ton Total Absolu</div>
+                    <div class="stat-value" id="user-alltime">--h --m</div>
+                </div>
+            </div>
+        </section>
     </main>
 
     <script src="script.js"></script>

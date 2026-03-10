@@ -1,9 +1,24 @@
 async function fetchStats() {
     try {
-        const response = await fetch('/api/stats');
+        // Helper function to format minutes into "Xh Ym"
+        const formatTime = (totalMinutes) => {
+            if (!totalMinutes || totalMinutes === 0) return "0h 0m";
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            return `${hours}h ${minutes}m`;
+        };
+
+        // Lire le paramètre ?profil= dans l'URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const profilId = urlParams.get('profil');
+
+        // Préparer l'URL de l'API avec le profil si présent
+        const apiUrl = profilId ? `/api/stats?profil=${profilId}` : '/api/stats';
+
+        const response = await fetch(apiUrl);
         const data = await response.json();
 
-        // DOM Elements
+        // DOM Elements Globaux
         const activeUsersCount = document.getElementById('active-count');
         const activePulse = document.getElementById('active-pulse');
         const statToday = document.getElementById('stat-today');
@@ -12,13 +27,16 @@ async function fetchStats() {
         const statYear = document.getElementById('stat-year');
         const statAllTime = document.getElementById('stat-alltime');
 
-        // Helper function to format minutes into "Xh Ym"
-        const formatTime = (totalMinutes) => {
-            if (!totalMinutes || totalMinutes === 0) return "0h 0m";
-            const hours = Math.floor(totalMinutes / 60);
-            const minutes = totalMinutes % 60;
-            return `${hours}h ${minutes}m`;
-        };
+        // DOM Elements Personnels
+        const personalPanel = document.getElementById('personal-panel');
+        const userStreak = document.getElementById('user-streak');
+        const userFreezes = document.getElementById('user-freezes');
+        const userPriority = document.getElementById('user-priority');
+        const userToday = document.getElementById('user-today');
+        const userWeek = document.getElementById('user-week');
+        const userMonth = document.getElementById('user-month');
+        const userYear = document.getElementById('user-year');
+        const userAllTime = document.getElementById('user-alltime');
 
         // Mettre à jour les stats globales de la communauté
         if (data.globalStats) {
@@ -39,6 +57,26 @@ async function fetchStats() {
             } else {
                 activePulse.classList.remove('live-active');
             }
+        }
+
+        // Mettre à jour l'Espace Personnel (si les données sont présentes)
+        if (data.userStats) {
+            // Afficher le panneau
+            personalPanel.classList.remove('hidden');
+
+            // Remplir les données
+            userStreak.innerText = data.userStats.streak || 0;
+            userFreezes.innerText = data.userStats.freezes || 0;
+            userPriority.innerText = data.userStats.priority;
+
+            userToday.innerText = formatTime(data.userStats.today);
+            userWeek.innerText = formatTime(data.userStats.week);
+            userMonth.innerText = formatTime(data.userStats.month);
+            userYear.innerText = formatTime(data.userStats.year);
+            userAllTime.innerText = formatTime(data.userStats.allTime);
+        } else {
+            // Cacher le panneau si erreur ou pas de profil
+            personalPanel.classList.add('hidden');
         }
 
     } catch (error) {

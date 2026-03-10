@@ -120,6 +120,14 @@ h1 span {
 
 .global-stats-panel {
     padding: 30px;
+    margin-bottom: 24px;
+}
+
+.personal-panel {
+    padding: 30px;
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    background: rgba(124, 58, 237, 0.05);
+    /* Lueur violette pour le profil perso */
 }
 
 h2 {
@@ -127,6 +135,10 @@ h2 {
     margin-bottom: 24px;
     font-weight: 600;
     color: var(--text-secondary);
+}
+
+.hidden {
+    display: none !important;
 }
 
 /* 🔴 Live Pulse Effect */
@@ -298,6 +310,63 @@ h2 {
     font-weight: 700;
     color: #ffd700;
     /* Gold */
+}
+
+/* Streak & Priorité (Personal Panel) */
+.personal-top-stats {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.pill-stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-size: 0.95rem;
+    border: 1px solid var(--glass-border);
+}
+
+.pill-icon {
+    font-size: 1.2rem;
+}
+
+.priority-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.priority-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+
+.priority-value {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-style: italic;
+}
+
+/* Différenciation de certaines cartes dans le panel personnel */
+.personal-card {
+    background: rgba(124, 58, 237, 0.05);
+}
+
+.personal-card.highlight {
+    background: rgba(124, 58, 237, 0.15);
+    border-color: rgba(124, 58, 237, 0.4);
 }
 
 /* Loading state */

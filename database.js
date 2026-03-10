@@ -35,8 +35,13 @@ db.query(`
     checkout_date TEXT,
     session_start TEXT,
     current_priority TEXT,
+    checkin_date TEXT,
+    checkout_date TEXT,
+    session_start TEXT,
+    current_priority TEXT,
     month_minutes INTEGER DEFAULT 0,
-    year_minutes INTEGER DEFAULT 0
+    year_minutes INTEGER DEFAULT 0,
+    secret_id TEXT UNIQUE
   )
 `)
   .then(() => {
@@ -51,6 +56,7 @@ db.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS current_priority TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS month_minutes INTEGER DEFAULT 0;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS year_minutes INTEGER DEFAULT 0;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS secret_id TEXT UNIQUE;
     `);
   })
   .then(() => console.log("✅ Colonnes de Streak Freeze vérifiées."))

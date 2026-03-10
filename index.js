@@ -10,6 +10,7 @@ const db = require("./database");
 const express = require("express");
 const path = require("path");
 const { formatInTimeZone, toZonedTime } = require("date-fns-tz");
+const crypto = require("crypto");
 
 const TIMEZONE = "Europe/Paris";
 
@@ -69,6 +70,41 @@ client.on("messageCreate", async (message) => {
     return { now, isoDate, hour };
   };
 
+  // Fonction utilitaire pour assurer qu'un utilisateur possède un secret_id
+  const ensureSecretId = async (uid) => {
+    const { rows } = await db.query(`SELECT secret_id FROM users WHERE user_id = $1`, [uid]);
+    if (rows.length > 0 && rows[0].secret_id) {
+      return rows[0].secret_id;
+    }
+    // Génération d'un UUID s'il n'existe pas
+    const newSecret = crypto.randomUUID();
+    await db.query(`UPDATE users SET secret_id = $1 WHERE user_id = $2`, [newSecret, uid]);
+    return newSecret;
+  };
+
+  // -------------------------
+  // COMMANDE PROFIL (!profil)
+  // -------------------------
+  if (message.content.startsWith("!profil")) {
+    try {
+      // On s'assure qu'il existe dans la DB
+      await db.query(
+        `INSERT INTO users (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+        [userId]
+      );
+      const secret = await ensureSecretId(userId);
+
+      // On envoie le lien en Message Privé
+      const dmChannel = await message.author.createDM();
+      await dmChannel.send(`👋 Bonjour ! Voici le lien vers ton tableau de bord personnel ultra-secret. Garde-le précieusement, il te permet de voir tes statistiques individuelles au sein de la communauté Med in Belgium !\n\n👉 **https://lockin-bot-production-e71a.up.railway.app/?profil=${secret}**`);
+
+      message.reply("✅ Je t'ai envoyé le lien vers ton tableau de bord personnel en Message Privé !");
+    } catch (err) {
+      console.error("Erreur !profil :", err);
+      message.reply("❌ Impossible de t'envoyer un message privé. Vérifie tes paramètres de confidentialité Discord !");
+    }
+  }
+
   // -------------------------
   // COMMANDE CHECK-IN MATINAL (!checkin)
   // -------------------------
@@ -97,6 +133,9 @@ client.on("messageCreate", async (message) => {
       } else {
         message.reply("✅ Check-in validé ! Bon courage pour tes objectifs du jour. N'oublie pas de lancer `!start` quand tu commences en Deep Work.");
       }
+
+      // Assurer la création de l'UUID en fond
+      await ensureSecretId(userId);
     } catch (err) {
       console.error("Erreur !checkin :", err);
       message.reply("❌ Une erreur est survenue : " + err.message);
@@ -121,6 +160,9 @@ client.on("messageCreate", async (message) => {
         [userId, isoNow]
       );
       message.reply("⏱️ Session de Deep Work démarrée ! Reste focus, on lâche rien. Tape `!stop` quand tu as terminé ou que tu fais une pause.");
+
+      // Assurer la création de l'UUID en fond
+      await ensureSecretId(userId);
     } catch (err) {
       console.error("Erreur !start :", err);
       message.reply("❌ Une erreur est survenue : " + err.message);
@@ -293,6 +335,8 @@ app.use(express.static(path.join(__dirname, "public")));
 // API : Récupérer les statistiques globales de la communauté (Dashboard MIB)
 app.get("/api/stats", async (req, res) => {
   try {
+    const secretId = req.query.profil; // paramètre optionnel ?profil=XYZ
+
     // Somme totale de tous les temps de la communauté
     const { rows: statsRows } = await db.query(`
       SELECT 
@@ -314,7 +358,7 @@ app.get("/api/stats", async (req, res) => {
     const globalStats = statsRows[0];
     const activeCount = parseInt(countRows[0].active_count, 10);
 
-    res.json({
+    let responsePayload = {
       globalStats: {
         today: parseInt(globalStats.today || 0, 10),
         week: parseInt(globalStats.week || 0, 10),
@@ -323,7 +367,28 @@ app.get("/api/stats", async (req, res) => {
         allTime: parseInt(globalStats.all_time || 0, 10)
       },
       activeCount: activeCount
-    });
+    };
+
+    // Si un profil est demandé, on tente de récupérer ses données
+    if (secretId) {
+      const { rows: userRows } = await db.query(`SELECT * FROM users WHERE secret_id = $1`, [secretId]);
+      if (userRows.length > 0) {
+        const user = userRows[0];
+        responsePayload.userStats = {
+          streak: user.current_streak,
+          freezes: user.freezes_available,
+          priority: user.current_priority || "Aucune priorité définie",
+          today: user.today_minutes || 0,
+          week: user.week_minutes || 0,
+          month: user.month_minutes || 0,
+          year: user.year_minutes || 0,
+          allTime: user.total_minutes || 0,
+          isActive: user.session_start ? true : false
+        };
+      }
+    }
+
+    res.json(responsePayload);
   } catch (err) {
     console.error("Erreur API stats :", err);
     res.status(500).json({ error: "Erreur serveur" });
