@@ -262,68 +262,80 @@ client.on("messageCreate", async (message) => {
       let streak = user.current_streak || 0;
       let streakMessage = "";
 
-      // QUESTION DE LA PRIORITÉ
-      message.reply("C'est noté ! Quelle est ta priorité pour demain ? (Tu as 60 secondes pour répondre dans ce salon)");
+      // -------------------------
+      // ÉTAPE 1 : VALIDATION IMMÉDIATE DU STREAK
+      // -------------------------
 
-      // Création du filtre pour le collecteur de messages
-      const filter = (m) => m.author.id === userId;
+      if (hasCheckedIn && hasWorked) {
+        const yesterdayDate = new Date();
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterday = formatInTimeZone(yesterdayDate, TIMEZONE, "yyyy-MM-dd");
 
-      try {
-        // On attend UN seul message correspondant au filtre, pendant 60 secondes max
-        const collected = await message.channel.awaitMessages({ filter, max: 1, time: 60000, errors: ['time'] });
-        const priorityMessage = collected.first();
-        const userPriority = priorityMessage.content;
-
-        // Si on arrive ici, l'utilisateur a répondu à temps !
-        if (hasCheckedIn && hasWorked) {
-          const yesterdayDate = new Date();
-          yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-          const yesterday = formatInTimeZone(yesterdayDate, TIMEZONE, "yyyy-MM-dd");
-
-          if (user.checkout_date === yesterday || streak === 0) {
-            streak += 1;
-          } else {
-            streak = 1;
-          }
-          streakMessage = `✅ Conditions remplies ! Ton streak monte à 🔥 **${streak} jours** !`;
+        if (user.checkout_date === yesterday || streak === 0) {
+          streak += 1;
         } else {
-          streakMessage = `⚠️ Tu fais ton check-out, mais tu n'as pas rempli les devoirs du jour (Check-in ce matin ET temps de travail). Ton streak ne montera pas.`;
+          streak = 1; // Reprise à 1 s'il y a un trou (bien que géré par les Freezes avant)
         }
+        streakMessage = `✅ Conditions remplies ! Ton streak monte à 🔥 **${streak} jours** !`;
+      } else {
+        streakMessage = `⚠️ Check-out enregistré, mais tu n'as pas rempli les devoirs du jour (Check-in ce matin ET temps de travail). Ton streak stagne à **${streak} jours**.`;
+      }
 
-        // Sauvegarde PENDANT le check-out
-        await db.query(`
-          UPDATE users 
-          SET checkout_date = $1,
-              current_streak = $2,
-              last_checkin = $1,
-              current_priority = $3
-          WHERE user_id = $4
-        `, [isoDate, streak, userPriority, userId]);
+      // 1ère Sauvegarde (Le Streak est sécurisé)
+      await db.query(`
+        UPDATE users 
+        SET checkout_date = $1,
+            current_streak = $2,
+            last_checkin = $1
+        WHERE user_id = $3
+      `, [isoDate, streak, userId]);
 
-        // --- LOGIQUE D'ATTRIBUTION DES RÔLES ---
-        try {
-          if (message.member && streak > 0 && hasCheckedIn && hasWorked) {
-            const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
-            if (targetRole) {
-              const hasRole = message.member.roles.cache.has(targetRole.id);
-              if (!hasRole) await message.member.roles.add(targetRole.id);
+      // Processus de Rôles
+      try {
+        if (message.member && streak > 0 && hasCheckedIn && hasWorked) {
+          const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
+          if (targetRole) {
+            const hasRole = message.member.roles.cache.has(targetRole.id);
+            if (!hasRole) await message.member.roles.add(targetRole.id);
 
-              for (const r of ROLE_THRESHOLDS) {
-                if (r.id !== targetRole.id && message.member.roles.cache.has(r.id)) {
-                  await message.member.roles.remove(r.id);
-                }
+            for (const r of ROLE_THRESHOLDS) {
+              if (r.id !== targetRole.id && message.member.roles.cache.has(r.id)) {
+                await message.member.roles.remove(r.id);
               }
             }
           }
-        } catch (roleErr) {
-          console.error("Erreur rôles (!checkout):", roleErr);
         }
+      } catch (roleErr) {
+        console.error("Erreur rôles (!checkout):", roleErr);
+      }
 
-        priorityMessage.reply(`${streakMessage}\nTa priorité "**${userPriority}**" est bien enregistrée. Bonne nuit et à demain !`);
+      // Envoi de la confirmation du Streak
+      await message.reply(`${streakMessage}\n\n🎯 Dernière étape ! Quelle est ta priorité pour demain ? *(Tu as 3 minutes pour répondre dans ce salon)*`);
+
+      // -------------------------
+      // ÉTAPE 2 : QUESTION DE LA PRIORITÉ (Facultatif, 3 minutes)
+      // -------------------------
+
+      const filter = (m) => m.author.id === userId;
+
+      try {
+        // On attend UN seul message en 3 minutes (180 000 ms)
+        const collected = await message.channel.awaitMessages({ filter, max: 1, time: 180000, errors: ['time'] });
+        const priorityMessage = collected.first();
+        const userPriority = priorityMessage.content;
+
+        // 2ème Sauvegarde : Update de la priorité seule
+        await db.query(`
+          UPDATE users 
+          SET current_priority = $1
+          WHERE user_id = $2
+        `, [userPriority, userId]);
+
+        priorityMessage.reply(`Ta priorité "**${userPriority}**" est bien enregistrée. Bonne nuit et à demain !`);
 
       } catch (timeout) {
-        // L'utilisateur n'a pas répondu en 60 secondes
-        return message.channel.send(`<@${userId}> ⏱️ Temps écoulé (60 secondes). Ton Check-out a été annulé car tu n'as pas donné ta priorité. Merci de retaper \`!checkout\` quand tu seras prêt !`);
+        // Temps écoulé (3 min), on ne fait qu'avertir sans pénaliser le streak
+        return message.channel.send(`<@${userId}> ⏱️ Temps écoulé (3 minutes). Ton Check-out a bien été validé, mais ta priorité n'a pas été encodée pour demain !`);
       }
 
     } catch (err) {
