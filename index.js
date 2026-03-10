@@ -410,6 +410,64 @@ app.get("/api/stats", async (req, res) => {
 
 
 // ============================================================
+// TÂCHE AUTOMATIQUE : ARRÊT AUTO APRÈS 3H (MAX LIMIT)
+// ============================================================
+
+cron.schedule("* * * * *", async () => {
+  try {
+    const { rows } = await db.query(`SELECT user_id, session_start, total_minutes FROM users WHERE session_start IS NOT NULL`);
+
+    if (!rows || rows.length === 0) return;
+
+    for (const user of rows) {
+      const sessionStart = new Date(user.session_start);
+      const diffMs = new Date() - sessionStart;
+      const minutes = Math.floor(diffMs / 60000);
+
+      // Si la session dépasse 180 minutes (3h)
+      if (minutes >= 180) {
+        const rewardMinutes = 180;
+
+        const oldTotal = user.total_minutes || 0;
+        const newTotal = oldTotal + rewardMinutes;
+        const oldFreezes = Math.floor(oldTotal / 500);
+        const newFreezes = Math.floor(newTotal / 500);
+        const earned = newFreezes - oldFreezes;
+
+        await db.query(`
+          UPDATE users 
+          SET total_minutes = total_minutes + $1,
+              year_minutes = year_minutes + $1,
+              month_minutes = month_minutes + $1,
+              week_minutes = week_minutes + $1,
+              today_minutes = today_minutes + $1,
+              freezes_available = freezes_available + $2,
+              session_start = NULL
+          WHERE user_id = $3
+        `, [rewardMinutes, earned, user.user_id]);
+
+        let pmMessage = `⚠️ **Arrêt Automatique :** Ta session de Deep Work a atteint la limite maximale de 3 heures sans pause. Ta session a été interrompue automatiquement et **180 minutes** ont été créditées à ton profil.\n\nSi tu es toujours en train de travailler, relance un \`!start\` pour démarrer un nouveau bloc. S'il s'agissait d'un oubli de chronomètre, sois honnête et travaille la différence (le surplus que tu aurais théoriquement fait) sans relancer d'autre compteur la prochaine fois. 😉`;
+
+        if (earned > 0) {
+          pmMessage += `\n\n❄️ Bonus : Au passage, tu as franchi un palier et gagné **${earned} Streak Freeze(s)** !`;
+        }
+
+        try {
+          const u = await client.users.fetch(user.user_id);
+          await u.send(pmMessage);
+          console.log(`⏱️ Arrêt auto (3h) déclenché pour l'utilisateur ${user.user_id}`);
+        } catch (err) {
+          console.error(`Impossible d'envoyer le message de stop auto à ${user.user_id}:`, err);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Erreur cron Arrêt Automatique :", err);
+  }
+});
+
+
+// ============================================================
 // TÂCHE AUTOMATIQUE : STREAK FREEZE À 23H59
 // ============================================================
 
