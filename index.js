@@ -182,12 +182,19 @@ client.on("messageCreate", async (message) => {
 
       const sessionStart = new Date(rows[0].session_start);
       const diffMs = new Date() - sessionStart;
-      const minutes = Math.floor(diffMs / 60000);
+      let minutes = Math.floor(diffMs / 60000);
 
       if (minutes < 1) {
         // Annuler la session si moins d'1 minute
         await db.query(`UPDATE users SET session_start = NULL WHERE user_id = $1`, [userId]);
         return message.reply("⚠️ Session annulée (moins d'une minute écoulée).");
+      }
+
+      // ANTI-CHEAT : Plafond de 3 heures maximales par session de Deep Work
+      let wasCapped = false;
+      if (minutes > 180) {
+        minutes = 180;
+        wasCapped = true;
       }
 
       const oldTotal = rows[0].total_minutes || 0;
@@ -209,6 +216,12 @@ client.on("messageCreate", async (message) => {
       `, [minutes, earned, userId]);
 
       let rewardMsg = `⏸️ Session terminée : **${minutes} minutes** ajoutées !`;
+
+      // Ajout du message d'avertissement en cas de dépassement
+      if (wasCapped) {
+        rewardMsg += `\n⚠️ **Attention :** Ta session dépassait 3 heures sans pause. Pour ta santé et l'intégrité de la communauté, le temps ajouté a été plafonné à **3h (180 minutes)**. Si c'était un oubli honnête, rattrape la différence lors de ta prochaine session de travail **sans activer le compteur** pour rééquilibrer ton total. 😉`;
+      }
+
       if (earned > 0) {
         rewardMsg += `\n❄️ Bravo ! Tu as franchi un palier et gagné **${earned} Streak Freeze(s)** !`;
       }
