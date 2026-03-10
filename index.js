@@ -547,8 +547,8 @@ cron.schedule("59 23 * * *", async () => {
 
   // RÉINITIALISATION JOURNALIÈRE POUR TOUT LE MONDE À MINUIT
   try {
-    await db.query(`UPDATE users SET today_minutes = 0, session_start = NULL`);
-    console.log("Remise à zéro de today_minutes et arrêts des chronos oubliés.");
+    await db.query(`UPDATE users SET today_minutes = 0`);
+    console.log("Remise à zéro de today_minutes à minuit.");
   } catch (err) {
     console.error("Erreur reset journalier (23:59) :", err);
   }
