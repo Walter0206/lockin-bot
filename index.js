@@ -309,7 +309,18 @@ client.on("messageCreate", async (message) => {
         console.error("Erreur rôles (!checkout):", roleErr);
       }
 
-      // Envoi de la confirmation du Streak
+      // Envoi du Rapport Quotidien en Message Privé
+      try {
+        const hours = (user.total_minutes / 60).toFixed(1);
+        const days = (hours / 24).toFixed(2);
+        await message.author.send(
+          `📊 Daily Deep Work Report\n\nAujourd'hui : ${user.today_minutes || 0} minutes\nCette semaine : ${user.week_minutes || 0} minutes\n\nTotal :\n${user.total_minutes || 0} minutes\n${hours} heures\n${days} jours`
+        );
+      } catch (dmErr) {
+        console.error("Impossible d'envoyer le rapport quotidien (DM peut-être fermé) :", dmErr);
+      }
+
+      // Envoi de la confirmation du Streak sur le salon
       await message.reply(`${streakMessage}\n\n🎯 Dernière étape ! Quelle est ta priorité pour demain ? *(Tu as 3 minutes pour répondre dans ce salon)*`);
 
       // -------------------------
@@ -571,37 +582,6 @@ cron.schedule("59 23 * * *", async () => {
 // Lancement du serveur web
 app.listen(PORT, () => {
   console.log(`✅ Dashboard accessible sur http://localhost:${PORT}`);
-});
-
-
-// ============================================================
-// TÂCHE AUTOMATIQUE : RAPPORT QUOTIDIEN À 21H
-// ============================================================
-
-cron.schedule("0 21 * * *", async () => {
-
-  try {
-    const { rows } = await db.query(`SELECT * FROM users`);
-    if (!rows || rows.length === 0) return;
-
-    for (const user of rows) {
-      const hours = (user.total_minutes / 60).toFixed(1);
-      const days = (hours / 24).toFixed(2);
-
-      try {
-        const u = await client.users.fetch(user.user_id);
-        await u.send(
-          `📊 Daily Deep Work Report\n\nAujourd'hui : ${user.today_minutes || 0} minutes\nCette semaine : ${user.week_minutes || 0} minutes\n\nTotal :\n${user.total_minutes || 0} minutes\n${hours} heures\n${days} jours`
-        );
-      } catch (_) {
-        // DM désactivés ou utilisateur introuvable — on passe
-      }
-    }
-    // (Auparavant le today_minutes s'effaçait ici à 21h, ce qui faussait le travail du soir. Il est maintenant à 23h59)
-  } catch (err) {
-    console.error("Erreur rapport quotidien :", err);
-  }
-
 });
 
 
