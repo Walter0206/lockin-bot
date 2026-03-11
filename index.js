@@ -50,15 +50,13 @@ client.on("ready", () => {
 
 
 // ============================================================
-// ÉVÉNEMENT : MESSAGE REÇU
+// ÉVÉNEMENT : INTERACTION REÇU (SLASH COMMANDS)
 // ============================================================
 
-client.on("messageCreate", async (message) => {
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
 
-  // On ignore les messages des autres bots
-  if (message.author.bot) return;
-
-  const userId = message.author.id;
+  const userId = interaction.user.id;
 
 
   // Fonction utilitaire pour récupérer l'heure de Paris
@@ -83,9 +81,9 @@ client.on("messageCreate", async (message) => {
   };
 
   // -------------------------
-  // COMMANDE PROFIL (!profil)
+  // COMMANDE PROFIL (/profil)
   // -------------------------
-  if (message.content.startsWith("!profil")) {
+  if (interaction.commandName === "profil") {
     try {
       // On s'assure qu'il existe dans la DB
       await db.query(
@@ -95,25 +93,25 @@ client.on("messageCreate", async (message) => {
       const secret = await ensureSecretId(userId);
 
       // On envoie le lien en Message Privé
-      const dmChannel = await message.author.createDM();
+      const dmChannel = await interaction.user.createDM();
       await dmChannel.send(`👋 Bonjour ! Voici le lien vers ton tableau de bord personnel ultra-secret. Garde-le précieusement, il te permet de voir tes statistiques individuelles au sein de la communauté Med in Belgium !\n\n👉 **https://lockin-bot-production-e71a.up.railway.app/?profil=${secret}**`);
 
-      message.reply("✅ Je t'ai envoyé le lien vers ton tableau de bord personnel en Message Privé !");
+      await interaction.reply({ content: "✅ Je t'ai envoyé le lien vers ton tableau de bord personnel en Message Privé !", ephemeral: true });
     } catch (err) {
       console.error("Erreur !profil :", err);
-      message.reply("❌ Impossible de t'envoyer un message privé. Vérifie tes paramètres de confidentialité Discord !");
+      await interaction.reply({ content: "❌ Impossible de t'envoyer un message privé. Vérifie tes paramètres de confidentialité Discord !", ephemeral: true });
     }
   }
 
   // -------------------------
-  // COMMANDE CHECK-IN MATINAL (!checkin)
+  // COMMANDE CHECK-IN MATINAL (/checkin)
   // -------------------------
-  if (message.content.startsWith("!checkin")) {
+  if (interaction.commandName === "checkin") {
     const { isoDate, hour } = getParisDateInfo();
 
     // Vérification de l'heure (00:00 à 08:59)
     if (hour >= 9) {
-      return message.reply("❌ Trop tard ! Le check-in matinal n'est disponible qu'entre 00h00 et 08h59 (Heure de Paris).");
+      return await interaction.reply("❌ Trop tard ! Le check-in matinal n'est disponible qu'entre 00h00 et 08h59 (Heure de Paris).");
     }
 
     try {
@@ -129,27 +127,27 @@ client.on("messageCreate", async (message) => {
       const priority = rows[0]?.current_priority;
 
       if (priority) {
-        message.reply(`✅ Check-in validé ! Rappel de ta priorité du jour : **${priority}**. Au boulot ! (Tape \`!start\` quand tu commences)`);
+        await interaction.reply(`✅ Check-in validé ! Rappel de ta priorité du jour : **${priority}**. Au boulot ! (Tape \`/start\` quand tu commences)`);
       } else {
-        message.reply("✅ Check-in validé ! Bon courage pour tes objectifs du jour. N'oublie pas de lancer `!start` quand tu commences en Deep Work.");
+        await interaction.reply("✅ Check-in validé ! Bon courage pour tes objectifs du jour. N'oublie pas de lancer `/start` quand tu commences en Deep Work.");
       }
 
       // Assurer la création de l'UUID en fond
       await ensureSecretId(userId);
     } catch (err) {
       console.error("Erreur !checkin :", err);
-      message.reply("❌ Une erreur est survenue : " + err.message);
+      await interaction.reply("❌ Une erreur est survenue : " + err.message);
     }
   }
 
   // -------------------------
-  // COMMANDE START TIMER (!start)
+  // COMMANDE START TIMER (/start)
   // -------------------------
-  if (message.content.startsWith("!start")) {
+  if (interaction.commandName === "start") {
     try {
       const { rows } = await db.query(`SELECT session_start FROM users WHERE user_id = $1`, [userId]);
       if (rows.length > 0 && rows[0].session_start) {
-        return message.reply("⏳ Une session de Deep Work est déjà en cours ! Utilise `!stop` pour l'arrêter.");
+        return await interaction.reply("⏳ Une session de Deep Work est déjà en cours ! Utilise `/stop` pour l'arrêter.");
       }
 
       const isoNow = new Date().toISOString();
@@ -159,25 +157,25 @@ client.on("messageCreate", async (message) => {
          ON CONFLICT (user_id) DO UPDATE SET session_start = $2`,
         [userId, isoNow]
       );
-      message.reply("⏱️ Session de Deep Work démarrée ! Reste focus, on lâche rien. Tape `!stop` quand tu as terminé ou que tu fais une pause.");
+      await interaction.reply("⏱️ Session de Deep Work démarrée ! Reste focus, on lâche rien. Tape `/stop` quand tu as terminé ou que tu fais une pause.");
 
       // Assurer la création de l'UUID en fond
       await ensureSecretId(userId);
     } catch (err) {
       console.error("Erreur !start :", err);
-      message.reply("❌ Une erreur est survenue : " + err.message);
+      await interaction.reply("❌ Une erreur est survenue : " + err.message);
     }
   }
 
   // -------------------------
-  // COMMANDE STOP TIMER (!stop)
+  // COMMANDE STOP TIMER (/stop)
   // -------------------------
-  if (message.content.startsWith("!stop")) {
+  if (interaction.commandName === "stop") {
     try {
       const { rows } = await db.query(`SELECT session_start, total_minutes FROM users WHERE user_id = $1`, [userId]);
 
       if (!rows || rows.length === 0 || !rows[0].session_start) {
-        return message.reply("❌ Aucune session en cours. Tape `!start` pour en lancer une.");
+        return await interaction.reply("❌ Aucune session en cours. Tape `/start` pour en lancer une.");
       }
 
       const sessionStart = new Date(rows[0].session_start);
@@ -187,7 +185,7 @@ client.on("messageCreate", async (message) => {
       if (minutes < 1) {
         // Annuler la session si moins d'1 minute
         await db.query(`UPDATE users SET session_start = NULL WHERE user_id = $1`, [userId]);
-        return message.reply("⚠️ Session annulée (moins d'une minute écoulée).");
+        return await interaction.reply("⚠️ Session annulée (moins d'une minute écoulée).");
       }
 
       // ANTI-CHEAT : Plafond de 3 heures maximales par session de Deep Work
@@ -225,22 +223,22 @@ client.on("messageCreate", async (message) => {
       if (earned > 0) {
         rewardMsg += `\n❄️ Bravo ! Tu as franchi un palier et gagné **${earned} Streak Freeze(s)** !`;
       }
-      message.reply(rewardMsg);
+      await interaction.reply(rewardMsg);
     } catch (err) {
       console.error("Erreur !stop :", err);
-      message.reply("❌ Une erreur est survenue : " + err.message);
+      await interaction.reply("❌ Une erreur est survenue : " + err.message);
     }
   }
 
   // -------------------------
-  // COMMANDE CHECK-OUT DU SOIR (!checkout)
+  // COMMANDE CHECK-OUT DU SOIR (/checkout)
   // -------------------------
-  if (message.content.startsWith("!checkout")) {
+  if (interaction.commandName === "checkout") {
     const { isoDate, hour } = getParisDateInfo();
 
     // Vérification de l'heure (21:00 à 23:59)
     if (hour < 21) {
-      return message.reply("❌ Trop tôt ! Le check-out du soir n'est disponible qu'entre 21h00 et 23h59 (Heure de Paris).");
+      return await interaction.reply("❌ Trop tôt ! Le check-out du soir n'est disponible qu'entre 21h00 et 23h59 (Heure de Paris).");
     }
 
     try {
@@ -248,11 +246,11 @@ client.on("messageCreate", async (message) => {
       const user = rows[0];
 
       if (!user) {
-        return message.reply("❌ Utilisateur introuvable.");
+        return await interaction.reply("❌ Utilisateur introuvable.");
       }
 
       if (user.checkout_date === isoDate) {
-        return message.reply(`✅ Tu as déjà fait ton check-out aujourd'hui ! Streak actuel : 🔥 ${user.current_streak} jours`);
+        return await interaction.reply(`✅ Tu as déjà fait ton check-out aujourd'hui ! Streak actuel : 🔥 ${user.current_streak} jours`);
       }
 
       // VÉRIFICATION DES CONDITIONS DE STREAK (Pré-calcul)
@@ -292,15 +290,15 @@ client.on("messageCreate", async (message) => {
 
       // Processus de Rôles
       try {
-        if (message.member && streak > 0 && hasCheckedIn && hasWorked) {
+        if (interaction.member && streak > 0 && hasCheckedIn && hasWorked) {
           const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
           if (targetRole) {
-            const hasRole = message.member.roles.cache.has(targetRole.id);
-            if (!hasRole) await message.member.roles.add(targetRole.id);
+            const hasRole = interaction.member.roles.cache.has(targetRole.id);
+            if (!hasRole) await interaction.member.roles.add(targetRole.id);
 
             for (const r of ROLE_THRESHOLDS) {
-              if (r.id !== targetRole.id && message.member.roles.cache.has(r.id)) {
-                await message.member.roles.remove(r.id);
+              if (r.id !== targetRole.id && interaction.member.roles.cache.has(r.id)) {
+                await interaction.member.roles.remove(r.id);
               }
             }
           }
@@ -313,45 +311,61 @@ client.on("messageCreate", async (message) => {
       try {
         const hours = (user.total_minutes / 60).toFixed(1);
         const days = (hours / 24).toFixed(2);
-        await message.author.send(
+        await interaction.user.send(
           `📊 Daily Deep Work Report\n\nAujourd'hui : ${user.today_minutes || 0} minutes\nCette semaine : ${user.week_minutes || 0} minutes\n\nTotal :\n${user.total_minutes || 0} minutes\n${hours} heures\n${days} jours`
         );
       } catch (dmErr) {
         console.error("Impossible d'envoyer le rapport quotidien (DM peut-être fermé) :", dmErr);
       }
 
-      // Envoi de la confirmation du Streak sur le salon
-      await message.reply(`${streakMessage}\n\n🎯 Dernière étape ! Quelle est ta priorité pour demain ? *(Tu as 3 minutes pour répondre dans ce salon)*`);
+      const inlinePriority = interaction.options.getString("priorite");
 
-      // -------------------------
-      // ÉTAPE 2 : QUESTION DE LA PRIORITÉ (Facultatif, 3 minutes)
-      // -------------------------
-
-      const filter = (m) => m.author.id === userId;
-
-      try {
-        // On attend UN seul message en 3 minutes (180 000 ms)
-        const collected = await message.channel.awaitMessages({ filter, max: 1, time: 180000, errors: ['time'] });
-        const priorityMessage = collected.first();
-        const userPriority = priorityMessage.content;
-
-        // 2ème Sauvegarde : Update de la priorité seule
+      if (inlinePriority) {
+        // L'utilisateur a déjà donné sa priorité dans la commande /checkout
         await db.query(`
           UPDATE users 
           SET current_priority = $1
           WHERE user_id = $2
-        `, [userPriority, userId]);
+        `, [inlinePriority, userId]);
 
-        priorityMessage.reply(`Ta priorité "**${userPriority}**" est bien enregistrée. Bonne nuit et à demain !`);
+        await interaction.reply(`${streakMessage}\n\nTa priorité "**${inlinePriority}**" est bien enregistrée. Bonne nuit et à demain !`);
+      } else {
+        // Envoi de la confirmation du Streak sur le salon et demande de priorité
+        await interaction.reply(`${streakMessage}\n\n🎯 Dernière étape ! Quelle est ta priorité pour demain ? *(Tu as 3 minutes pour répondre dans ce salon)*`);
 
-      } catch (timeout) {
-        // Temps écoulé (3 min), on ne fait qu'avertir sans pénaliser le streak
-        return message.channel.send(`<@${userId}> ⏱️ Temps écoulé (3 minutes). Ton Check-out a bien été validé, mais ta priorité n'a pas été encodée pour demain !`);
+        // -------------------------
+        // ÉTAPE 2 : QUESTION DE LA PRIORITÉ (Facultatif, 3 minutes)
+        // -------------------------
+
+        const filter = (m) => m.author.id === userId;
+
+        try {
+          // On attend UN seul message en 3 minutes (180 000 ms)
+          const collected = await interaction.channel.awaitMessages({ filter, max: 1, time: 180000, errors: ['time'] });
+          const priorityMessage = collected.first();
+          const userPriority = priorityMessage.content;
+
+          // 2ème Sauvegarde : Update de la priorité seule
+          await db.query(`
+            UPDATE users 
+            SET current_priority = $1
+            WHERE user_id = $2
+          `, [userPriority, userId]);
+
+          await priorityMessage.reply(`Ta priorité "**${userPriority}**" est bien enregistrée. Bonne nuit et à demain !`);
+
+        } catch (timeout) {
+          // Temps écoulé (3 min), on ne fait qu'avertir sans pénaliser le streak
+          return interaction.channel.send(`<@${userId}> ⏱️ Temps écoulé (3 minutes). Ton Check-out a bien été validé, mais ta priorité n'a pas été encodée pour demain !`);
+        }
       }
 
     } catch (err) {
       console.error("Erreur !checkout :", err);
-      message.reply("❌ Une erreur interne est survenue : " + err.message);
+      // interaction.reply() might not work if deferred/replied already over 15mins but this is for errors
+      if (!interaction.replied) {
+        await interaction.reply("❌ Une erreur interne est survenue : " + err.message);
+      }
     }
   }
 
