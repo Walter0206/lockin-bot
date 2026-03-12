@@ -631,12 +631,27 @@ app.post(
     // ----- PAIEMENT VALIDÉ : Attribuer le rôle Discord -----
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
-      const discordUserId = session.metadata?.discord_user_id;
+      
+      // Extraction de l'ID Discord depuis les champs personnalisés (custom_fields)
+      // car les Payment Links ne permettent pas de définir une "key" metadata facilement.
+      let discordUserId = session.metadata?.discord_user_id;
+
+      if (!discordUserId && session.custom_fields) {
+        const discordField = session.custom_fields.find(f => 
+          f.text && (f.label.type === 'custom' && f.label.custom.toLowerCase().includes('discord'))
+        );
+        if (discordField) {
+          discordUserId = discordField.text.value;
+        }
+      }
 
       if (!discordUserId) {
-        console.error("⚠️  Webhook reçu sans discord_user_id dans les métadonnées.");
+        console.error("⚠️ Webhook reçu sans discord_user_id (ni metadata, ni custom_fields).");
         return res.status(200).send("OK (pas d'ID Discord fourni)");
       }
+
+      // Nettoyage de l'ID (au cas où l'utilisateur aurait mis des espaces)
+      discordUserId = discordUserId.trim();
 
       try {
         const guild = await client.guilds.fetch(GUILD_ID);
