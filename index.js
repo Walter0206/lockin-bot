@@ -11,6 +11,9 @@ const express = require("express");
 const path = require("path");
 const { formatInTimeZone, toZonedTime } = require("date-fns-tz");
 const crypto = require("crypto");
+const Stripe = require("stripe");
+
+const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 const TIMEZONE = "Europe/Paris";
 
@@ -592,6 +595,100 @@ cron.schedule("59 23 * * *", async () => {
     console.error("Erreur reset journalier (23:59) :", err);
   }
 });
+
+// ============================================================
+// STRIPE WEBHOOK (Paiement → Accès Discord automatique)
+// ============================================================
+
+// ⚠️  Ce endpoint doit recevoir le body brut (avant express.json())
+// C'est obligatoire pour que Stripe puisse vérifier la signature.
+app.post(
+  "/stripe-webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+      console.error("❌ Stripe non configuré (clés manquantes)");
+      return res.status(500).send("Stripe non configuré");
+    }
+
+    const sig = req.headers["stripe-signature"];
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error("❌ Signature Stripe invalide :", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    const GUILD_ID = process.env.DISCORD_GUILD_ID;
+    const MEMBER_ROLE_ID = process.env.DISCORD_MEMBER_ROLE_ID;
+
+    // ----- PAIEMENT VALIDÉ : Attribuer le rôle Discord -----
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      const discordUserId = session.metadata?.discord_user_id;
+
+      if (!discordUserId) {
+        console.error("⚠️  Webhook reçu sans discord_user_id dans les métadonnées.");
+        return res.status(200).send("OK (pas d'ID Discord fourni)");
+      }
+
+      try {
+        const guild = await client.guilds.fetch(GUILD_ID);
+        const member = await guild.members.fetch(discordUserId);
+        await member.roles.add(MEMBER_ROLE_ID);
+        console.log(`✅ Rôle Membre attribué à ${discordUserId} (paiement Stripe validé)`);
+
+        // On note la dateSubscription dans la DB si l'utilisateur existe déjà
+        await db.query(
+          `INSERT INTO users (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+          [discordUserId]
+        );
+
+        // Envoyer un DM de bienvenueà l'étudiant
+        const user = await client.users.fetch(discordUserId);
+        await user.send(
+          `🎉 **Bienvenue dans Med in Belgium !**\n\nTon paiement a été validé, tu as maintenant accès à toute la communauté !\n\nCommence par taper \`/checkin\` dans le serveur pour enregistrer ta première journée. Les sessions live sont chaque soir de **20h30 à 21h**. On compte sur toi ! 💪`
+        );
+      } catch (err) {
+        console.error(`❌ Erreur attribution de rôle à ${discordUserId} :`, err);
+      }
+    }
+
+    // ----- ABONNEMENT ANNULÉ : Retirer le rôle Discord -----
+    if (event.type === "customer.subscription.deleted") {
+      const subscription = event.data.object;
+      const discordUserId = subscription.metadata?.discord_user_id;
+
+      if (!discordUserId) {
+        console.error("⚠️  Webhook annulation reçu sans discord_user_id.");
+        return res.status(200).send("OK");
+      }
+
+      try {
+        const guild = await client.guilds.fetch(GUILD_ID);
+        const member = await guild.members.fetch(discordUserId);
+        await member.roles.remove(MEMBER_ROLE_ID);
+        console.log(`🔴 Rôle Membre retiré à ${discordUserId} (abonnement annulé)`);
+
+        // Envoyer un DM
+        const user = await client.users.fetch(discordUserId);
+        await user.send(
+          `😢 **Ton abonnement Med in Belgium est terminé.**\n\nNous espérons te revoir bientôt ! Tu peux te réabonner à tout moment sur notre page de vente.`
+        );
+      } catch (err) {
+        console.error(`❌ Erreur retrait de rôle à ${discordUserId} :`, err);
+      }
+    }
+
+    res.status(200).json({ received: true });
+  }
+);
 
 // Lancement du serveur web
 app.listen(PORT, () => {
