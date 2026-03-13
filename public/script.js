@@ -39,6 +39,12 @@ async function fetchStats() {
         const userAllTime = document.getElementById('user-alltime');
         const liveTimer = document.getElementById('live-session-timer');
 
+        // Validation Elements
+        const communityValidated = document.getElementById('community-validated');
+        const checkIn = document.getElementById('check-in');
+        const checkWork = document.getElementById('check-work');
+        const checkOut = document.getElementById('check-out');
+
         // Mettre à jour les stats globales de la communauté
         if (data.globalStats) {
             statToday.innerText = formatTime(data.globalStats.today);
@@ -46,6 +52,11 @@ async function fetchStats() {
             statMonth.innerText = formatTime(data.globalStats.month);
             statYear.innerText = formatTime(data.globalStats.year);
             statAllTime.innerText = formatTime(data.globalStats.allTime);
+        }
+
+        // Mettre à jour la validation collective
+        if (data.communityProgress && communityValidated) {
+            communityValidated.innerText = `${data.communityProgress.validated} / ${data.communityProgress.total}`;
         }
 
         // Mettre à jour le compteur d'utilisateurs en direct
@@ -75,6 +86,16 @@ async function fetchStats() {
             userMonth.innerText = formatTime(data.userStats.month);
             userYear.innerText = formatTime(data.userStats.year);
             userAllTime.innerText = formatTime(data.userStats.allTime);
+
+            // Mise à jour de la check-list
+            if (data.userStats.hasCheckin) checkIn.classList.add('valid');
+            else checkIn.classList.remove('valid');
+
+            if (data.userStats.hasWork) checkWork.classList.add('valid');
+            else checkWork.classList.remove('valid');
+
+            if (data.userStats.hasCheckout) checkOut.classList.add('valid');
+            else checkOut.classList.remove('valid');
 
             // Gestion du Chronomètre de session en direct
             if (data.userStats.isActive && data.userStats.sessionStart) {
