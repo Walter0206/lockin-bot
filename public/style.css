@@ -130,6 +130,62 @@ h1 span {
     /* Lueur violette pour le profil perso */
 }
 
+/* Countdown Panel */
+.countdown-panel {
+    padding: 30px;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.countdown-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.countdown-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 15px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.countdown-item:hover {
+    background: rgba(124, 58, 237, 0.08);
+    border-color: rgba(124, 58, 237, 0.3);
+    transform: translateY(-2px);
+}
+
+.countdown-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-shadow: 0 0 15px var(--accent-glow);
+    line-height: 1;
+    margin-bottom: 5px;
+}
+
+.countdown-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@media (max-width: 500px) {
+    .countdown-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .countdown-value {
+        font-size: 2rem;
+    }
+}
+
 h2 {
     font-size: 1.25rem;
     margin-bottom: 24px;

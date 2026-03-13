@@ -85,6 +85,32 @@ async function fetchStats() {
     }
 }
 
+function updateCountdown() {
+    const targetDate = new Date('2026-08-27T09:00:00+02:00'); // 9h Brussels (UTC+2 in summer)
+    const now = new Date();
+    const diff = targetDate - now;
+
+    if (diff <= 0) {
+        document.querySelector('.countdown-panel h2').innerText = "🎉 C'est le moment ! Bonne chance pour le concours !";
+        document.querySelector('.countdown-grid').classList.add('hidden');
+        return;
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    document.getElementById('days').innerText = days.toString().padStart(2, '0');
+    document.getElementById('hours').innerText = hours.toString().padStart(2, '0');
+    document.getElementById('minutes').innerText = minutes.toString().padStart(2, '0');
+    document.getElementById('seconds').innerText = seconds.toString().padStart(2, '0');
+}
+
 // Fetch stats initially and then every 30 seconds
 fetchStats();
 setInterval(fetchStats, 30000);
+
+// Update countdown every second
+updateCountdown();
+setInterval(updateCountdown, 1000);
