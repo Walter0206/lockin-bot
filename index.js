@@ -419,10 +419,9 @@ app.use(express.static(path.join(__dirname, "public")));
 // API : Récupérer les statistiques globales de la communauté (Dashboard MIB)
 app.get("/api/stats", async (req, res) => {
   try {
-    const secretId = req.query.profil;
-    const { isoDate } = getParisDateInfo();
+    const secretId = req.query.profil; // paramètre optionnel ?profil=XYZ
 
-    // Stats globales de temps
+    // Somme totale de tous les temps de la communauté
     const { rows: statsRows } = await db.query(`
       SELECT 
         SUM(today_minutes) AS today,
@@ -433,28 +432,15 @@ app.get("/api/stats", async (req, res) => {
       FROM users
     `);
 
-    // Sessions actives
+    // Nouvelle requête pour compter les sessions actives (travail silencieux en cours)
     const { rows: countRows } = await db.query(`
       SELECT COUNT(*) AS active_count 
       FROM users 
       WHERE session_start IS NOT NULL
     `);
 
-    // NOUVEAU : Calcul de la validation quotidienne (3 critères réunis)
-    const { rows: progressRows } = await db.query(`
-      SELECT 
-        COUNT(*) AS total_members,
-        COUNT(*) FILTER (
-          WHERE checkin_date = $1 
-          AND today_minutes > 0 
-          AND checkout_date = $1
-        ) AS validated_count
-      FROM users
-    `, [isoDate]);
-
     const globalStats = statsRows[0];
     const activeCount = parseInt(countRows[0].active_count, 10);
-    const progress = progressRows[0];
 
     let responsePayload = {
       globalStats: {
@@ -464,13 +450,10 @@ app.get("/api/stats", async (req, res) => {
         year: parseInt(globalStats.year || 0, 10),
         allTime: parseInt(globalStats.all_time || 0, 10)
       },
-      communityProgress: {
-        total: parseInt(progress.total_members || 0, 10),
-        validated: parseInt(progress.validated_count || 0, 10)
-      },
       activeCount: activeCount
     };
 
+    // Si un profil est demandé, on tente de récupérer ses données
     if (secretId) {
       const { rows: userRows } = await db.query(`SELECT * FROM users WHERE secret_id = $1`, [secretId]);
       if (userRows.length > 0) {
@@ -485,11 +468,7 @@ app.get("/api/stats", async (req, res) => {
           year: user.year_minutes || 0,
           allTime: user.total_minutes || 0,
           isActive: user.session_start ? true : false,
-          sessionStart: user.session_start,
-          // Validation personnelle
-          hasCheckin: user.checkin_date === isoDate,
-          hasWork: (user.today_minutes || 0) > 0,
-          hasCheckout: user.checkout_date === isoDate
+          sessionStart: user.session_start
         };
       }
     }
