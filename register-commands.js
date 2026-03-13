@@ -37,6 +37,12 @@ const commands = [
   new SlashCommandBuilder()
     .setName('migrer-membres')
     .setDescription('Donner le rôle Lockin à tous les membres ayant un streak (Migration)'),
+  new SlashCommandBuilder()
+    .setName('classement')
+    .setDescription('Afficher le Top 10 des membres les plus réguliers'),
+  new SlashCommandBuilder()
+    .setName('setup-hierarchy')
+    .setDescription('Installer le message de présentation de la hiérarchie (Admin uniquement)'),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);

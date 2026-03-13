@@ -578,7 +578,86 @@ client.on("interactionCreate", async (interaction) => {
     }
   }
 
+
+  // -------------------------
+  // COMMANDE CLASSEMENT (/classement)
+  // -------------------------
+  if (interaction.commandName === "classement") {
+    try {
+      const { rows } = await db.query(`
+        SELECT user_id, current_streak 
+        FROM users 
+        WHERE current_streak > 0 
+        ORDER BY current_streak DESC 
+        LIMIT 10
+      `);
+
+      if (rows.length === 0) {
+        return await interaction.reply({ content: "🏆 Le classement est encore vide. Soyez le premier à valider votre streak !", ephemeral: true });
+      }
+
+      let description = "";
+      const medals = ["🥇", "🥈", "🥉"];
+
+      for (let i = 0; i < rows.length; i++) {
+        const medal = medals[i] || "🔹";
+        description += `${medal} **<@${rows[i].user_id}>** : 🔥 \`${rows[i].current_streak} jours\`\n`;
+      }
+
+      const embed = {
+        title: "🏆 TOP 10 - Les Rois de la Consistance",
+        description: description,
+        color: 0xFFD700, // Gold
+        thumbnail: {
+          url: client.user.displayAvatarURL()
+        },
+        footer: {
+          text: "Continuez comme ça, la régularité paye toujours ! 💪"
+        },
+        timestamp: new Date()
+      };
+
+      await interaction.reply({ embeds: [embed] });
+    } catch (err) {
+      console.error("Erreur !classement :", err);
+      await interaction.reply({ content: "❌ Une erreur est survenue lors de la récupération du classement.", ephemeral: true });
+    }
+  }
+
+  // -------------------------
+  // COMMANDE SETUP HIERARCHY (/setup-hierarchy)
+  // -------------------------
+  if (interaction.commandName === "setup-hierarchy") {
+    if (!interaction.member.permissions.has("Administrator")) {
+      return await interaction.reply({ content: "❌ Seuls les administrateurs peuvent utiliser cette commande.", ephemeral: true });
+    }
+
+    const embed = {
+      title: "🏔️ La Montagne de la Consistance",
+      description: "Voici les grades que tu peux débloquer sur le serveur en maintenant ton streak quotidien. " +
+        "Chaque palier franchi montre ta détermination et ton engagement envers tes objectifs.\n\n" +
+        "**💎 Les Paliers :**\n" +
+        "👑 **Légende** (30 jours) : Le sommet ultime de l'autodiscipline.\n" +
+        "🔥 **On fire** (14 jours) : Une régularité à toute épreuve.\n" +
+        "🛡️ **Engagé** (7 jours) : Une habitude qui commence à s'ancrer.\n" +
+        "🏃 **Régulier** (3 jours) : Le plus dur est fait, tu es lancé.\n" +
+        "🌱 **Débutant** (1 jour) : Le premier pas du voyage.\n\n" +
+        "**🔄 Le Cycle de la Réussite :**\n" +
+        "1️⃣ **Matin (00h-09h)** : `/checkin` pour déclarer tes intentions.\n" +
+        "2️⃣ **Journée** : `/start` et `/stop` pour mesurer ton effort.\n" +
+        "3️⃣ **Soir (21h-00h)** : `/checkout` pour valider ta journée et ton streak.\n\n" +
+        "*N'oublie pas : La consistance bat l'intensité à chaque fois. Travaille en silence, laisse tes résultats faire du bruit.*",
+      color: 0x3498DB, // Blue
+      image: {
+        url: "https://media.discordapp.net/attachments/1090332851897483264/1113886542617260062/conssitance.jpg"
+      }
+    };
+
+    await interaction.reply({ embeds: [embed] });
+  }
+
 });
+
 
 
 // ============================================================
