@@ -11,10 +11,10 @@ const commands = [
     .setDescription('Valider ta présence le matin (00h00 - 08h59)'),
   new SlashCommandBuilder()
     .setName('start')
-    .setDescription('Démarrer une session de Deep Work'),
+    .setDescription('Démarrer une session de Travail silencieux'),
   new SlashCommandBuilder()
     .setName('stop')
-    .setDescription('Arrêter la session de Deep Work en cours'),
+    .setDescription('Arrêter la session de Travail silencieux en cours'),
   new SlashCommandBuilder()
     .setName('checkout')
     .setDescription('Valider ta journée le soir (21h00 - 23h59)')

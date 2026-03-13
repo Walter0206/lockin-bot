@@ -97,7 +97,7 @@ client.on("interactionCreate", async (interaction) => {
 
       // On envoie le lien en Message Privé
       const dmChannel = await interaction.user.createDM();
-      await dmChannel.send(`👋 Bonjour ! Voici le lien vers ton tableau de bord personnel ultra-secret. Garde-le précieusement, il te permet de voir tes statistiques individuelles au sein de la communauté Med in Belgium !\n\n👉 **https://lockin-bot-production-e71a.up.railway.app/?profil=${secret}**`);
+      await dmChannel.send(`👋 Bonjour ! Voici le lien vers ton tableau de bord personnel ultra-secret. Garde-le précieusement, il te permet de voir tes statistiques individuelles au sein de la communauté Med in silence !\n\n👉 **https://lockin-bot-production-e71a.up.railway.app/?profil=${secret}**`);
 
       await interaction.reply({ content: "✅ Je t'ai envoyé le lien vers ton tableau de bord personnel en Message Privé !", ephemeral: true });
     } catch (err) {
@@ -132,7 +132,7 @@ client.on("interactionCreate", async (interaction) => {
       if (priority) {
         await interaction.reply(`✅ Check-in validé ! Rappel de ta priorité du jour : **${priority}**. Au boulot ! (Tape \`/start\` quand tu commences)`);
       } else {
-        await interaction.reply("✅ Check-in validé ! Bon courage pour tes objectifs du jour. N'oublie pas de lancer `/start` quand tu commences en Deep Work.");
+        await interaction.reply("✅ Check-in validé ! Bon courage pour tes objectifs du jour. N'oublie pas de lancer `/start` quand tu commences en Travail silencieux.");
       }
 
       // Assurer la création de l'UUID en fond
@@ -150,7 +150,7 @@ client.on("interactionCreate", async (interaction) => {
     try {
       const { rows } = await db.query(`SELECT session_start FROM users WHERE user_id = $1`, [userId]);
       if (rows.length > 0 && rows[0].session_start) {
-        return await interaction.reply("⏳ Une session de Deep Work est déjà en cours ! Utilise `/stop` pour l'arrêter.");
+        return await interaction.reply("⏳ Une session de Travail silencieux est déjà en cours ! Utilise `/stop` pour l'arrêter.");
       }
 
       const isoNow = new Date().toISOString();
@@ -160,7 +160,7 @@ client.on("interactionCreate", async (interaction) => {
          ON CONFLICT (user_id) DO UPDATE SET session_start = $2`,
         [userId, isoNow]
       );
-      await interaction.reply("⏱️ Session de Deep Work démarrée ! Reste focus, on lâche rien. Tape `/stop` quand tu as terminé ou que tu fais une pause.");
+      await interaction.reply("⏱️ Session de Travail silencieux démarrée ! Reste focus, on lâche rien. Tape `/stop` quand tu as terminé ou que tu fais une pause.");
 
       // Assurer la création de l'UUID en fond
       await ensureSecretId(userId);
@@ -191,7 +191,7 @@ client.on("interactionCreate", async (interaction) => {
         return await interaction.reply("⚠️ Session annulée (moins d'une minute écoulée).");
       }
 
-      // ANTI-CHEAT : Plafond de 3 heures maximales par session de Deep Work
+      // ANTI-CHEAT : Plafond de 3 heures maximales par session de Travail silencieux
       let wasCapped = false;
       if (minutes > 180) {
         minutes = 180;
@@ -315,7 +315,7 @@ client.on("interactionCreate", async (interaction) => {
         const hours = (user.total_minutes / 60).toFixed(1);
         const days = (hours / 24).toFixed(2);
         await interaction.user.send(
-          `📊 Daily Deep Work Report\n\nAujourd'hui : ${user.today_minutes || 0} minutes\nCette semaine : ${user.week_minutes || 0} minutes\n\nTotal :\n${user.total_minutes || 0} minutes\n${hours} heures\n${days} jours`
+          `📊 Daily Travail silencieux Report\n\nAujourd'hui : ${user.today_minutes || 0} minutes\nCette semaine : ${user.week_minutes || 0} minutes\n\nTotal :\n${user.total_minutes || 0} minutes\n${hours} heures\n${days} jours`
         );
       } catch (dmErr) {
         console.error("Impossible d'envoyer le rapport quotidien (DM peut-être fermé) :", dmErr);
@@ -432,7 +432,7 @@ app.get("/api/stats", async (req, res) => {
       FROM users
     `);
 
-    // Nouvelle requête pour compter les sessions actives (deepwork en cours)
+    // Nouvelle requête pour compter les sessions actives (travail silencieux en cours)
     const { rows: countRows } = await db.query(`
       SELECT COUNT(*) AS active_count 
       FROM users 
@@ -518,7 +518,7 @@ cron.schedule("* * * * *", async () => {
           WHERE user_id = $3
         `, [rewardMinutes, earned, user.user_id]);
 
-        let pmMessage = `⚠️ **Arrêt Automatique :** Ta session de Deep Work a atteint la limite maximale de 3 heures sans pause. Ta session a été interrompue automatiquement et **180 minutes** ont été créditées à ton profil.\n\nSi tu es toujours en train de travailler, relance un \`!start\` pour démarrer un nouveau bloc. S'il s'agissait d'un oubli de chronomètre, sois honnête et travaille la différence (le surplus que tu aurais théoriquement fait) sans relancer d'autre compteur la prochaine fois. 😉`;
+        let pmMessage = `⚠️ **Arrêt Automatique :** Ta session de Travail silencieux a atteint la limite maximale de 3 heures sans pause. Ta session a été interrompue automatiquement et **180 minutes** ont été créditées à ton profil.\n\nSi tu es toujours en train de travailler, relance un \`!start\` pour démarrer un nouveau bloc. S'il s'agissait d'un oubli de chronomètre, sois honnête et travaille la différence (le surplus que tu aurais théoriquement fait) sans relancer d'autre compteur la prochaine fois. 😉`;
 
         if (earned > 0) {
           pmMessage += `\n\n❄️ Bonus : Au passage, tu as franchi un palier et gagné **${earned} Streak Freeze(s)** !`;
@@ -700,7 +700,7 @@ app.post(
         // Envoyer un DM de bienvenueà l'étudiant
         const user = await client.users.fetch(discordUserId);
         await user.send(
-          `🎉 **Bienvenue dans Med in Belgium !**\n\nTon paiement a été validé, tu as maintenant accès à toute la communauté !\n\nCommence par taper \`/checkin\` dans le serveur pour enregistrer ta première journée. Les sessions live sont chaque soir de **20h30 à 21h**. On compte sur toi ! 💪`
+          `🎉 **Bienvenue dans Med in silence !**\n\nTon paiement a été validé, tu as maintenant accès à toute la communauté !\n\nCommence par taper \`/checkin\` dans le serveur pour enregistrer ta première journée. Les sessions live sont chaque soir de **20h30 à 21h**. On compte sur toi ! 💪`
         );
       } catch (err) {
         console.error(`❌ Erreur attribution de rôle à ${discordUserId} :`, err);
@@ -726,7 +726,7 @@ app.post(
         // Envoyer un DM
         const user = await client.users.fetch(discordUserId);
         await user.send(
-          `😢 **Ton abonnement Med in Belgium est terminé.**\n\nNous espérons te revoir bientôt ! Tu peux te réabonner à tout moment sur notre page de vente.`
+          `😢 **Ton abonnement Med in silence est terminé.**\n\nNous espérons te revoir bientôt ! Tu peux te réabonner à tout moment sur notre page de vente.`
         );
       } catch (err) {
         console.error(`❌ Erreur retrait de rôle à ${discordUserId} :`, err);
