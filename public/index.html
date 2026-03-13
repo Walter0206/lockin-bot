@@ -54,6 +54,33 @@
             </div>
         </section>
 
+        <section class="global-stats-panel progress-panel glass">
+            <h2>📊 Progression Collective du Jour</h2>
+            <div class="progress-stats-grid">
+                <div class="progress-card">
+                    <div class="progress-icon">👋</div>
+                    <div class="progress-info">
+                        <span class="progress-label">Check-ins</span>
+                        <span class="progress-val" id="community-checkin">0 / 0</span>
+                    </div>
+                </div>
+                <div class="progress-card">
+                    <div class="progress-icon">⚡</div>
+                    <div class="progress-info">
+                        <span class="progress-label">Travail en cours</span>
+                        <span class="progress-val" id="community-work">0 / 0</span>
+                    </div>
+                </div>
+                <div class="progress-card">
+                    <div class="progress-icon">🌙</div>
+                    <div class="progress-info">
+                        <span class="progress-label">Checkouts</span>
+                        <span class="progress-val" id="community-checkout">0 / 0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section class="global-stats-panel glass">
             <h2>🌍 Temps de travail de la Communauté</h2>
             <div class="stats-grid">
@@ -83,14 +110,31 @@
         <section id="personal-panel" class="personal-panel glass hidden">
             <h2>👤 Ton Espace Personnel</h2>
 
-            <div class="personal-top-stats">
-                <div class="pill-stat">
-                    <span class="pill-icon">🔥</span>
-                    <span class="pill-text">Streak <strong id="user-streak">0</strong> jours</span>
+            <div class="personal-header-row">
+                <div class="personal-top-stats">
+                    <div class="pill-stat">
+                        <span class="pill-icon">🔥</span>
+                        <span class="pill-text">Streak <strong id="user-streak">0</strong> jours</span>
+                    </div>
+                    <div class="pill-stat">
+                        <span class="pill-icon">❄️</span>
+                        <span class="pill-text" id="user-freezes">0</span> freezes
+                    </div>
                 </div>
-                <div class="pill-stat">
-                    <span class="pill-icon">❄️</span>
-                    <span class="pill-text" id="user-freezes">0</span> freezes
+
+                <div class="daily-checklist">
+                    <div class="checklist-item" id="check-step-in">
+                        <span class="check-icon">⚪</span>
+                        <span class="check-text">Check-in</span>
+                    </div>
+                    <div class="checklist-item" id="check-step-work">
+                        <span class="check-icon">⚪</span>
+                        <span class="check-text">Travail</span>
+                    </div>
+                    <div class="checklist-item" id="check-step-out">
+                        <span class="check-icon">⚪</span>
+                        <span class="check-text">Check-out</span>
+                    </div>
                 </div>
             </div>
 
