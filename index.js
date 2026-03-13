@@ -4,7 +4,7 @@
 
 require("dotenv").config();
 
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const cron = require("node-cron");
 const db = require("./database");
 const express = require("express");
@@ -114,7 +114,7 @@ client.on("interactionCreate", async (interaction) => {
 
     // Vérification de l'heure (00:00 à 08:59)
     if (hour >= 9) {
-      return await interaction.reply("❌ Trop tard ! Le check-in matinal n'est disponible qu'entre 00h00 et 08h59 (Heure de Paris).");
+      return await interaction.reply({ content: "❌ Trop tard ! Le check-in matinal n'est disponible qu'entre 00h00 et 08h59 (Heure de Paris).", ephemeral: true });
     }
 
     try {
@@ -130,16 +130,16 @@ client.on("interactionCreate", async (interaction) => {
       const priority = rows[0]?.current_priority;
 
       if (priority) {
-        await interaction.reply(`✅ Check-in validé ! Rappel de ta priorité du jour : **${priority}**. Au boulot ! (Tape \`/start\` quand tu commences)`);
+        await interaction.reply({ content: `✅ Check-in validé ! Rappel de ta priorité du jour : **${priority}**. Au boulot ! (Tape \`/start\` quand tu commences)`, ephemeral: true });
       } else {
-        await interaction.reply("✅ Check-in validé ! Bon courage pour tes objectifs du jour. N'oublie pas de lancer `/start` quand tu commences en Travail silencieux.");
+        await interaction.reply({ content: "✅ Check-in validé ! Bon courage pour tes objectifs du jour. N'oublie pas de lancer `/start` quand tu commences en Travail silencieux.", ephemeral: true });
       }
 
       // Assurer la création de l'UUID en fond
       await ensureSecretId(userId);
     } catch (err) {
       console.error("Erreur !checkin :", err);
-      await interaction.reply("❌ Une erreur est survenue : " + err.message);
+      await interaction.reply({ content: "❌ Une erreur est survenue : " + err.message, ephemeral: true });
     }
   }
 
@@ -150,7 +150,7 @@ client.on("interactionCreate", async (interaction) => {
     try {
       const { rows } = await db.query(`SELECT session_start FROM users WHERE user_id = $1`, [userId]);
       if (rows.length > 0 && rows[0].session_start) {
-        return await interaction.reply("⏳ Une session de Travail silencieux est déjà en cours ! Utilise `/stop` pour l'arrêter.");
+        return await interaction.reply({ content: "⏳ Une session de Travail silencieux est déjà en cours ! Utilise `/stop` pour l'arrêter.", ephemeral: true });
       }
 
       const isoNow = new Date().toISOString();
@@ -160,13 +160,13 @@ client.on("interactionCreate", async (interaction) => {
          ON CONFLICT (user_id) DO UPDATE SET session_start = $2`,
         [userId, isoNow]
       );
-      await interaction.reply("⏱️ Session de Travail silencieux démarrée ! Reste focus, on lâche rien. Tape `/stop` quand tu as terminé ou que tu fais une pause.");
+      await interaction.reply({ content: "⏱️ Session de Travail silencieux démarrée ! Reste focus, on lâche rien. Tape `/stop` quand tu as terminé ou que tu fais une pause.", ephemeral: true });
 
       // Assurer la création de l'UUID en fond
       await ensureSecretId(userId);
     } catch (err) {
       console.error("Erreur !start :", err);
-      await interaction.reply("❌ Une erreur est survenue : " + err.message);
+      await interaction.reply({ content: "❌ Une erreur est survenue : " + err.message, ephemeral: true });
     }
   }
 
@@ -178,7 +178,7 @@ client.on("interactionCreate", async (interaction) => {
       const { rows } = await db.query(`SELECT session_start, total_minutes FROM users WHERE user_id = $1`, [userId]);
 
       if (!rows || rows.length === 0 || !rows[0].session_start) {
-        return await interaction.reply("❌ Aucune session en cours. Tape `/start` pour en lancer une.");
+        return await interaction.reply({ content: "❌ Aucune session en cours. Tape `/start` pour en lancer une.", ephemeral: true });
       }
 
       const sessionStart = new Date(rows[0].session_start);
@@ -188,7 +188,7 @@ client.on("interactionCreate", async (interaction) => {
       if (minutes < 1) {
         // Annuler la session si moins d'1 minute
         await db.query(`UPDATE users SET session_start = NULL WHERE user_id = $1`, [userId]);
-        return await interaction.reply("⚠️ Session annulée (moins d'une minute écoulée).");
+        return await interaction.reply({ content: "⚠️ Session annulée (moins d'une minute écoulée).", ephemeral: true });
       }
 
       // ANTI-CHEAT : Plafond de 3 heures maximales par session de Travail silencieux
@@ -226,10 +226,10 @@ client.on("interactionCreate", async (interaction) => {
       if (earned > 0) {
         rewardMsg += `\n❄️ Bravo ! Tu as franchi un palier et gagné **${earned} Streak Freeze(s)** !`;
       }
-      await interaction.reply(rewardMsg);
+      await interaction.reply({ content: rewardMsg, ephemeral: true });
     } catch (err) {
       console.error("Erreur !stop :", err);
-      await interaction.reply("❌ Une erreur est survenue : " + err.message);
+      await interaction.reply({ content: "❌ Une erreur est survenue : " + err.message, ephemeral: true });
     }
   }
 
@@ -241,7 +241,7 @@ client.on("interactionCreate", async (interaction) => {
 
     // Vérification de l'heure (21:00 à 23:59)
     if (hour < 21) {
-      return await interaction.reply("❌ Trop tôt ! Le check-out du soir n'est disponible qu'entre 21h00 et 23h59 (Heure de Paris).");
+      return await interaction.reply({ content: "❌ Trop tôt ! Le check-out du soir n'est disponible qu'entre 21h00 et 23h59 (Heure de Paris).", ephemeral: true });
     }
 
     try {
@@ -249,11 +249,11 @@ client.on("interactionCreate", async (interaction) => {
       const user = rows[0];
 
       if (!user) {
-        return await interaction.reply("❌ Utilisateur introuvable.");
+        return await interaction.reply({ content: "❌ Utilisateur introuvable.", ephemeral: true });
       }
 
       if (user.checkout_date === isoDate) {
-        return await interaction.reply(`✅ Tu as déjà fait ton check-out aujourd'hui ! Streak actuel : 🔥 ${user.current_streak} jours`);
+        return await interaction.reply({ content: `✅ Tu as déjà fait ton check-out aujourd'hui ! Streak actuel : 🔥 ${user.current_streak} jours`, ephemeral: true });
       }
 
       // VÉRIFICATION DES CONDITIONS DE STREAK (Pré-calcul)
@@ -331,43 +331,72 @@ client.on("interactionCreate", async (interaction) => {
           WHERE user_id = $2
         `, [inlinePriority, userId]);
 
-        await interaction.reply(`${streakMessage}\n\nTa priorité "**${inlinePriority}**" est bien enregistrée. Bonne nuit et à demain !`);
+        await interaction.reply({ content: `${streakMessage}\n\nTa priorité "**${inlinePriority}**" est bien enregistrée. Bonne nuit et à demain !`, ephemeral: true });
       } else {
-        // Envoi de la confirmation du Streak sur le salon et demande de priorité
-        await interaction.reply(`${streakMessage}\n\n🎯 Dernière étape ! Quelle est ta priorité pour demain ? *(Tu as 3 minutes pour répondre dans ce salon)*`);
+        // Mode Discret : Bouton pour ouvrir un Modal
+        const row = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId('open_priority_modal')
+              .setLabel('🎯 Définir ma priorité')
+              .setStyle(ButtonStyle.Primary),
+          );
 
-        // -------------------------
-        // ÉTAPE 2 : QUESTION DE LA PRIORITÉ (Facultatif, 3 minutes)
-        // -------------------------
-
-        const filter = (m) => m.author.id === userId;
-
-        try {
-          // On attend UN seul message en 3 minutes (180 000 ms)
-          const collected = await interaction.channel.awaitMessages({ filter, max: 1, time: 180000, errors: ['time'] });
-          const priorityMessage = collected.first();
-          const userPriority = priorityMessage.content;
-
-          // 2ème Sauvegarde : Update de la priorité seule
-          await db.query(`
-            UPDATE users 
-            SET current_priority = $1
-            WHERE user_id = $2
-          `, [userPriority, userId]);
-
-          await priorityMessage.reply(`Ta priorité "**${userPriority}**" est bien enregistrée. Bonne nuit et à demain !`);
-
-        } catch (timeout) {
-          // Temps écoulé (3 min), on ne fait qu'avertir sans pénaliser le streak
-          return interaction.channel.send(`<@${userId}> ⏱️ Temps écoulé (3 minutes). Ton Check-out a bien été validé, mais ta priorité n'a pas été encodée pour demain !`);
-        }
+        await interaction.reply({
+          content: `${streakMessage}\n\n🎯 Dernière étape ! Clique sur le bouton ci-dessous pour définir ta priorité pour demain en toute discrétion.`,
+          components: [row],
+          ephemeral: true
+        });
       }
 
     } catch (err) {
       console.error("Erreur !checkout :", err);
-      // interaction.reply() might not work if deferred/replied already over 15mins but this is for errors
       if (!interaction.replied) {
-        await interaction.reply("❌ Une erreur interne est survenue : " + err.message);
+        await interaction.reply({ content: "❌ Une erreur interne est survenue : " + err.message, ephemeral: true });
+      }
+    }
+  }
+
+  // --- GESTION DU MODAL ET DES BOUTONS ---
+
+  if (interaction.isButton()) {
+    if (interaction.customId === 'open_priority_modal') {
+      const modal = new ModalBuilder()
+        .setCustomId('priority_modal')
+        .setTitle('Priorité pour demain');
+
+      const priorityInput = new TextInputBuilder()
+        .setCustomId('priorityInput')
+        .setLabel("Quelle est ta priorité pour demain ?")
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder("Ex: Avancer sur le chapitre 3...")
+        .setRequired(true);
+
+      const firstActionRow = new ActionRowBuilder().addComponents(priorityInput);
+      modal.addComponents(firstActionRow);
+
+      await interaction.showModal(modal);
+    }
+  }
+
+  if (interaction.isModalSubmit()) {
+    if (interaction.customId === 'priority_modal') {
+      const userPriority = interaction.fields.getTextInputValue('priorityInput');
+
+      try {
+        await db.query(`
+          UPDATE users 
+          SET current_priority = $1
+          WHERE user_id = $2
+        `, [userPriority, userId]);
+
+        await interaction.reply({
+          content: `✅ Ta priorité "**${userPriority}**" est bien enregistrée. Bonne nuit et à demain !`,
+          ephemeral: true
+        });
+      } catch (err) {
+        console.error("Erreur Modal Submit :", err);
+        await interaction.reply({ content: "❌ Erreur lors de l'enregistrement de ta priorité.", ephemeral: true });
       }
     }
   }
