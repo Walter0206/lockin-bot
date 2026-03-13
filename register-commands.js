@@ -31,6 +31,12 @@ const commands = [
         .setDescription('Ta nouvelle priorité')
         .setRequired(true)
     ),
+  new SlashCommandBuilder()
+    .setName('setup-onboarding')
+    .setDescription('Installer le message d\'onboarding avec le bouton d\'engagement (Admin uniquement)'),
+  new SlashCommandBuilder()
+    .setName('migrer-membres')
+    .setDescription('Donner le rôle Lockin à tous les membres ayant un streak (Migration)'),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);

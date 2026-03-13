@@ -30,6 +30,11 @@ const ROLE_THRESHOLDS = [
   { days: 1, id: "1479823817856778444", name: "Débutant" }
 ];
 
+// Nouveaux rôles d'accès
+const ROLE_PAID = process.env.DISCORD_PAID_ROLE_ID;
+const ROLE_VERIFIED = process.env.DISCORD_VERIFIED_ROLE_ID;
+const GUILD_ID = process.env.DISCORD_GUILD_ID;
+
 // ============================================================
 // CRÉATION DU BOT
 // ============================================================
@@ -299,6 +304,11 @@ client.on("interactionCreate", async (interaction) => {
             const hasRole = interaction.member.roles.cache.has(targetRole.id);
             if (!hasRole) await interaction.member.roles.add(targetRole.id);
 
+            // Sécurité : S'assurer qu'il a toujours le rôle d'accès général
+            if (ROLE_VERIFIED && !interaction.member.roles.cache.has(ROLE_VERIFIED)) {
+              await interaction.member.roles.add(ROLE_VERIFIED);
+            }
+
             for (const r of ROLE_THRESHOLDS) {
               if (r.id !== targetRole.id && interaction.member.roles.cache.has(r.id)) {
                 await interaction.member.roles.remove(r.id);
@@ -377,6 +387,41 @@ client.on("interactionCreate", async (interaction) => {
 
       await interaction.showModal(modal);
     }
+
+    if (interaction.customId === 'open_commitment_modal') {
+      const modal = new ModalBuilder()
+        .setCustomId('commitment_modal')
+        .setTitle('Mon Contrat d\'Engagement');
+
+      const motivationsInput = new TextInputBuilder()
+        .setCustomId('motivationsInput')
+        .setLabel("Pourquoi veux-tu réussir médecine ?")
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder("Tes motivations profondes...")
+        .setRequired(true);
+
+      const dailyInput = new TextInputBuilder()
+        .setCustomId('commitmentDaily')
+        .setLabel("T'engages-tu à travailler chaque jour ?")
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder("Oui, je m'y engage !")
+        .setRequired(true);
+
+      const dndInput = new TextInputBuilder()
+        .setCustomId('commitmentDnd')
+        .setLabel("Activeras-tu le mode 'Ne pas déranger' ?")
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder("Oui, c'est promis !")
+        .setRequired(true);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(motivationsInput),
+        new ActionRowBuilder().addComponents(dailyInput),
+        new ActionRowBuilder().addComponents(dndInput)
+      );
+
+      await interaction.showModal(modal);
+    }
   }
 
   if (interaction.isModalSubmit()) {
@@ -397,6 +442,40 @@ client.on("interactionCreate", async (interaction) => {
       } catch (err) {
         console.error("Erreur Modal Submit :", err);
         await interaction.reply({ content: "❌ Erreur lors de l'enregistrement de ta priorité.", ephemeral: true });
+      }
+    }
+
+    if (interaction.customId === 'commitment_modal') {
+      const motivations = interaction.fields.getTextInputValue('motivationsInput');
+      const commitmentDaily = interaction.fields.getTextInputValue('commitmentDaily');
+      const commitmentDnd = interaction.fields.getTextInputValue('commitmentDnd');
+
+      try {
+        const isoNow = new Date().toISOString();
+        await db.query(`
+          UPDATE users 
+          SET motivations = $1,
+              commitment_signed = TRUE,
+              signed_at = $2
+          WHERE user_id = $3
+        `, [motivations, isoNow, userId]);
+
+        // Echange de rôles
+        const guild = await client.guilds.fetch(GUILD_ID);
+        const member = await guild.members.fetch(userId);
+
+        if (ROLE_VERIFIED) await member.roles.add(ROLE_VERIFIED);
+        if (ROLE_PAID && member.roles.cache.has(ROLE_PAID)) {
+          await member.roles.remove(ROLE_PAID);
+        }
+
+        await interaction.reply({
+          content: "🎉 **Félicitations ! Ton contrat est signé.**\n\nTu as maintenant accès à tous les salons de la communauté. Bienvenue officiellement parmi les Lockins ! 💪",
+          ephemeral: true
+        });
+      } catch (err) {
+        console.error("Erreur Commitment Modal :", err);
+        await interaction.reply({ content: "❌ Une erreur est survenue lors de la validation de ton contrat.", ephemeral: true });
       }
     }
   }
@@ -429,6 +508,73 @@ client.on("interactionCreate", async (interaction) => {
         content: "❌ Une erreur est survenue lors de la mise à jour de ta priorité : " + err.message,
         ephemeral: true
       });
+    }
+  }
+
+  // -------------------------
+  // COMMANDE SETUP ONBOARDING (/setup-onboarding)
+  // -------------------------
+  if (interaction.commandName === "setup-onboarding") {
+    // Vérification admin
+    if (!interaction.member.permissions.has("Administrator")) {
+      return await interaction.reply({ content: "❌ Seuls les administrateurs peuvent utiliser cette commande.", ephemeral: true });
+    }
+
+    const embed = {
+      title: "✍️ Contrat d'Engagement - Med in silence",
+      description: "Pour accéder à la communauté et débloquer tous les salons, tu dois signer ton contrat d'engagement.\n\n" +
+        "Ce n'est pas qu'une simple formalité : c'est un engagement envers toi-même et envers les autres membres.\n\n" +
+        "**En cliquant sur le bouton ci-dessous, tu t'engages à :**\n" +
+        "1️⃣ Travailler un peu chaque jour pour réussir tes études.\n" +
+        "2️⃣ Utiliser le mode 'Ne pas déranger' lors de tes sessions.\n" +
+        "3️⃣ Être un membre actif et bienveillant.\n\n" +
+        "Clique sur le bouton pour remplir ton contrat !",
+      color: 0x00ff00
+    };
+
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('open_commitment_modal')
+          .setLabel('Signer mon contrat')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('📝')
+      );
+
+    await interaction.reply({ embeds: [embed], components: [row] });
+  }
+
+  // -------------------------
+  // COMMANDE MIGRATION (/migrer-membres)
+  // -------------------------
+  if (interaction.commandName === "migrer-membres") {
+    if (!interaction.member.permissions.has("Administrator")) {
+      return await interaction.reply({ content: "❌ Seuls les administrateurs peuvent utiliser cette commande.", ephemeral: true });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const { rows } = await db.query(`SELECT user_id FROM users WHERE current_streak > 0`);
+      let count = 0;
+      const guild = await client.guilds.fetch(GUILD_ID);
+
+      for (const row of rows) {
+        try {
+          const member = await guild.members.fetch(row.user_id).catch(() => null);
+          if (member && !member.roles.cache.has(ROLE_VERIFIED)) {
+            await member.roles.add(ROLE_VERIFIED);
+            count++;
+          }
+        } catch (mErr) {
+          console.error(`Erreur migration pour ${row.user_id}:`, mErr);
+        }
+      }
+
+      await interaction.editReply({ content: `✅ Migration terminée ! **${count}** membres ont reçu le rôle Lockin.` });
+    } catch (err) {
+      console.error("Erreur migration :", err);
+      await interaction.editReply({ content: "❌ Une erreur est survenue lors de la migration." });
     }
   }
 
@@ -687,14 +833,11 @@ app.post(
     }
 
     const GUILD_ID = process.env.DISCORD_GUILD_ID;
-    const MEMBER_ROLE_ID = process.env.DISCORD_MEMBER_ROLE_ID;
 
     // ----- PAIEMENT VALIDÉ : Attribuer le rôle Discord -----
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       
-      // Extraction de l'ID Discord depuis les champs personnalisés (custom_fields)
-      // car les Payment Links ne permettent pas de définir une "key" metadata facilement.
       let discordUserId = session.metadata?.discord_user_id;
 
       if (!discordUserId && session.custom_fields) {
@@ -711,22 +854,26 @@ app.post(
         return res.status(200).send("OK (pas d'ID Discord fourni)");
       }
 
-      // Nettoyage de l'ID (au cas où l'utilisateur aurait mis des espaces)
       discordUserId = discordUserId.trim();
 
       try {
         const guild = await client.guilds.fetch(GUILD_ID);
         const member = await guild.members.fetch(discordUserId);
-        await member.roles.add(MEMBER_ROLE_ID);
-        console.log(`✅ Rôle Membre attribué à ${discordUserId} (paiement Stripe validé)`);
+        
+        if (ROLE_PAID) {
+          await member.roles.add(ROLE_PAID);
+          console.log(`✅ Rôle Onboarding attribué à ${discordUserId} (paiement Stripe validé)`);
+        } else {
+          // Fallback
+          const MEMBER_ROLE_ID = process.env.DISCORD_MEMBER_ROLE_ID;
+          if (MEMBER_ROLE_ID) await member.roles.add(MEMBER_ROLE_ID);
+        }
 
-        // On note la dateSubscription dans la DB si l'utilisateur existe déjà
         await db.query(
           `INSERT INTO users (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
           [discordUserId]
         );
 
-        // Envoyer un DM de bienvenueà l'étudiant
         const user = await client.users.fetch(discordUserId);
         await user.send(
           `🎉 **Bienvenue dans Med in silence !**\n\nTon paiement a été validé, tu as maintenant accès à toute la communauté !\n\nCommence par taper \`/checkin\` dans le serveur pour enregistrer ta première journée. Les sessions live sont chaque soir de **20h30 à 21h**. On compte sur toi ! 💪`
@@ -749,10 +896,18 @@ app.post(
       try {
         const guild = await client.guilds.fetch(GUILD_ID);
         const member = await guild.members.fetch(discordUserId);
-        await member.roles.remove(MEMBER_ROLE_ID);
-        console.log(`🔴 Rôle Membre retiré à ${discordUserId} (abonnement annulé)`);
+        
+        if (ROLE_VERIFIED) await member.roles.remove(ROLE_VERIFIED);
+        if (ROLE_PAID) await member.roles.remove(ROLE_PAID);
+        
+        for (const r of ROLE_THRESHOLDS) {
+          if (member.roles.cache.has(r.id)) {
+            await member.roles.remove(r.id);
+          }
+        }
 
-        // Envoyer un DM
+        console.log(`🔴 Accès retiré à ${discordUserId} (abonnement annulé)`);
+
         const user = await client.users.fetch(discordUserId);
         await user.send(
           `😢 **Ton abonnement Med in silence est terminé.**\n\nNous espérons te revoir bientôt ! Tu peux te réabonner à tout moment sur notre page de vente.`

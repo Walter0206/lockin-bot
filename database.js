@@ -52,9 +52,12 @@ db.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS month_minutes INTEGER DEFAULT 0;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS year_minutes INTEGER DEFAULT 0;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS secret_id TEXT UNIQUE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS motivations TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS commitment_signed BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS signed_at TEXT;
     `);
   })
-  .then(() => console.log("✅ Colonnes de Streak Freeze vérifiées."))
+  .then(() => console.log("✅ Colonnes de commitment vérifiées."))
   .catch(err => console.error("❌ Erreur critique lors de la connexion/création de la table :", err));
 
 module.exports = db;
