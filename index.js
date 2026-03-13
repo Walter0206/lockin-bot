@@ -436,7 +436,8 @@ app.get("/api/stats", async (req, res) => {
           month: user.month_minutes || 0,
           year: user.year_minutes || 0,
           allTime: user.total_minutes || 0,
-          isActive: user.session_start ? true : false
+          isActive: user.session_start ? true : false,
+          sessionStart: user.session_start
         };
       }
     }

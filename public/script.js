@@ -37,6 +37,7 @@ async function fetchStats() {
         const userMonth = document.getElementById('user-month');
         const userYear = document.getElementById('user-year');
         const userAllTime = document.getElementById('user-alltime');
+        const liveTimer = document.getElementById('live-session-timer');
 
         // Mettre à jour les stats globales de la communauté
         if (data.globalStats) {
@@ -74,9 +75,19 @@ async function fetchStats() {
             userMonth.innerText = formatTime(data.userStats.month);
             userYear.innerText = formatTime(data.userStats.year);
             userAllTime.innerText = formatTime(data.userStats.allTime);
+
+            // Gestion du Chronomètre de session en direct
+            if (data.userStats.isActive && data.userStats.sessionStart) {
+                liveTimer.classList.remove('hidden');
+                window.currentSessionStart = new Date(data.userStats.sessionStart);
+            } else {
+                liveTimer.classList.add('hidden');
+                window.currentSessionStart = null;
+            }
         } else {
             // Cacher le panneau si erreur ou pas de profil
             personalPanel.classList.add('hidden');
+            liveTimer.classList.add('hidden');
         }
 
     } catch (error) {
@@ -107,10 +118,32 @@ function updateCountdown() {
     document.getElementById('seconds').innerText = seconds.toString().padStart(2, '0');
 }
 
+function updateStopwatchDisplay() {
+    if (!window.currentSessionStart) return;
+
+    const now = new Date();
+    const diff = now - window.currentSessionStart;
+
+    if (diff < 0) return;
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    const formattedStopwatch = `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+    document.getElementById('stopwatch-value').innerText = formattedStopwatch;
+}
+
 // Fetch stats initially and then every 30 seconds
 fetchStats();
 setInterval(fetchStats, 30000);
 
-// Update countdown every second
+// Update timers every second
+setInterval(() => {
+    updateCountdown();
+    updateStopwatchDisplay();
+}, 1000);
+
+// Initial run
 updateCountdown();
-setInterval(updateCountdown, 1000);
+updateStopwatchDisplay();
