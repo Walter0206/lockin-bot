@@ -372,6 +372,37 @@ client.on("interactionCreate", async (interaction) => {
     }
   }
 
+  // -------------------------
+  // COMMANDE PRIORITÉ (/priorite)
+  // -------------------------
+  if (interaction.commandName === "priorite") {
+    const newPriority = interaction.options.getString("message");
+
+    try {
+      // On s'assure que l'utilisateur existe dans la DB
+      await db.query(
+        `INSERT INTO users (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+        [userId]
+      );
+
+      await db.query(
+        `UPDATE users SET current_priority = $1 WHERE user_id = $2`,
+        [newPriority, userId]
+      );
+
+      await interaction.reply({
+        content: `✅ Ta priorité a été mise à jour : "**${newPriority}**". Elle est maintenant visible sur ton tableau de bord !`,
+        ephemeral: true
+      });
+    } catch (err) {
+      console.error("Erreur /priorite :", err);
+      await interaction.reply({
+        content: "❌ Une erreur est survenue lors de la mise à jour de ta priorité : " + err.message,
+        ephemeral: true
+      });
+    }
+  }
+
 });
 
 

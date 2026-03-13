@@ -22,14 +22,22 @@ const commands = [
       option.setName('priorite')
         .setDescription('Ta priorité pour demain (optionnel)')
         .setRequired(false)
-    )
+    ),
+  new SlashCommandBuilder()
+    .setName('priorite')
+    .setDescription('Définir ou modifier ta priorité du jour')
+    .addStringOption(option =>
+      option.setName('message')
+        .setDescription('Ta nouvelle priorité')
+        .setRequired(true)
+    ),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
 (async () => {
   try {
-    console.log('Début du rafraîchissement des commandes (/) de l\\'application.');
+    console.log("Début du rafraîchissement des commandes (/) de l'application.");
 
     // We extract the client ID from the token (the first part of the token base64 encoded)
     // Actually, discord REST API requires client_id. It's safer to provide it via ENV or extract it.
