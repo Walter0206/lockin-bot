@@ -39,16 +39,6 @@ async function fetchStats() {
         const userAllTime = document.getElementById('user-alltime');
         const liveTimer = document.getElementById('live-session-timer');
 
-        // Community Progress Elements
-        const commCheckin = document.getElementById('community-checkin');
-        const commWork = document.getElementById('community-work');
-        const commCheckout = document.getElementById('community-checkout');
-
-        // Personal Checklist Elements
-        const stepIn = document.getElementById('check-step-in');
-        const stepWork = document.getElementById('check-step-work');
-        const stepOut = document.getElementById('check-step-out');
-
         // Mettre à jour les stats globales de la communauté
         if (data.globalStats) {
             statToday.innerText = formatTime(data.globalStats.today);
@@ -56,14 +46,6 @@ async function fetchStats() {
             statMonth.innerText = formatTime(data.globalStats.month);
             statYear.innerText = formatTime(data.globalStats.year);
             statAllTime.innerText = formatTime(data.globalStats.allTime);
-        }
-
-        // Mettre à jour la progression communautaire
-        if (data.communityProgress) {
-            const total = data.communityProgress.total;
-            commCheckin.innerText = `${data.communityProgress.checkin} / ${total}`;
-            commWork.innerText = `${data.communityProgress.work} / ${total}`;
-            commCheckout.innerText = `${data.communityProgress.checkout} / ${total}`;
         }
 
         // Mettre à jour le compteur d'utilisateurs en direct
@@ -93,22 +75,6 @@ async function fetchStats() {
             userMonth.innerText = formatTime(data.userStats.month);
             userYear.innerText = formatTime(data.userStats.year);
             userAllTime.innerText = formatTime(data.userStats.allTime);
-
-            // Mise à jour de la Check-list personnelle
-            const updateCheckItem = (el, isValid) => {
-                const icon = el.querySelector('.check-icon');
-                if (isValid) {
-                    el.classList.add('valid');
-                    icon.innerText = '✅';
-                } else {
-                    el.classList.remove('valid');
-                    icon.innerText = '⚪';
-                }
-            };
-
-            updateCheckItem(stepIn, data.userStats.hasCheckin);
-            updateCheckItem(stepWork, data.userStats.hasWork);
-            updateCheckItem(stepOut, data.userStats.hasCheckout);
 
             // Gestion du Chronomètre de session en direct
             if (data.userStats.isActive && data.userStats.sessionStart) {
