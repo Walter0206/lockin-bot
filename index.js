@@ -580,51 +580,72 @@ client.on("interactionCreate", async (interaction) => {
     await interaction.deferReply({ ephemeral: true });
 
     try {
+      console.log("🚀 Lancement de la migration des rôles...");
       const { rows } = await db.query(`SELECT user_id, current_streak FROM users WHERE current_streak > 0`);
+      console.log(`📊 ${rows.length} utilisateurs avec un streak trouvés en base.`);
+      
       let count = 0;
       let rolesCount = 0;
-      const guild = await client.guilds.fetch(GUILD_ID);
+      let errors = 0;
+      const guild = await client.guilds.fetch(GUILD_ID).catch(err => {
+        console.error("❌ Impossible de récupérer la Guild:", err);
+        return null;
+      });
+
+      if (!guild) {
+        return await interaction.editReply({ content: "❌ Erreur critique : Le bot ne parvient pas à accéder au serveur Discord (ID incorrect ou accès refusé)." });
+      }
 
       for (const row of rows) {
         try {
           const member = await guild.members.fetch(row.user_id).catch(() => null);
-          if (member) {
-            // 1. Gérer le rôle de base (Lockin/Verified)
-            if (ROLE_VERIFIED && !member.roles.cache.has(ROLE_VERIFIED)) {
-              await member.roles.add(ROLE_VERIFIED);
+          if (!member) {
+            console.log(`⚠️ Membre ${row.user_id} non trouvé sur le serveur.`);
+            continue;
+          }
+
+          // 1. Gérer le rôle de base (Lockin/Verified)
+          if (ROLE_VERIFIED) {
+            if (!member.roles.cache.has(ROLE_VERIFIED)) {
+              await member.roles.add(ROLE_VERIFIED).catch(e => console.error(`Erreur ajout ROLE_VERIFIED pour ${member.user.tag}:`, e.message));
               count++;
             }
+          }
 
-            // 2. Gérer la hiérarchie de consistance
-            const streak = row.current_streak;
-            const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
+          // 2. Gérer la hiérarchie de consistance
+          const streak = row.current_streak;
+          const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
 
-            if (targetRole) {
-              const hasTarget = member.roles.cache.has(targetRole.id);
-              if (!hasTarget) {
-                await member.roles.add(targetRole.id);
-                rolesCount++;
-              }
+          if (targetRole) {
+            const hasTarget = member.roles.cache.has(targetRole.id);
+            if (!hasTarget) {
+              console.log(`🔧 Attribution du rôle ${targetRole.name} (${targetRole.id}) à ${member.user.tag} (Streak: ${streak})`);
+              await member.roles.add(targetRole.id).catch(e => {
+                console.error(`❌ Erreur ajout rôle ${targetRole.name} pour ${member.user.tag}:`, e.message);
+                errors++;
+              });
+              rolesCount++;
+            }
 
-              // Nettoyer les autres rôles de hiérarchie au passage
-              for (const r of ROLE_THRESHOLDS) {
-                if (r.id !== targetRole.id && member.roles.cache.has(r.id)) {
-                  await member.roles.remove(r.id);
-                }
+            // Nettoyer les autres rôles de hiérarchie au passage
+            for (const r of ROLE_THRESHOLDS) {
+              if (r.id !== targetRole.id && member.roles.cache.has(r.id)) {
+                await member.roles.remove(r.id).catch(e => console.error(`Erreur retrait ancien rôle ${r.name} pour ${member.user.tag}:`, e.message));
               }
             }
           }
         } catch (mErr) {
           console.error(`Erreur migration pour ${row.user_id}:`, mErr);
+          errors++;
         }
       }
 
       await interaction.editReply({ 
-        content: `✅ Migration terminée !\n- **${count}** membres ont reçu le rôle de base.\n- **${rolesCount}** grades de hiérarchie synchronisés.` 
+        content: `✅ Migration terminée !\n- **${count}** membres ont reçu le rôle de base.\n- **${rolesCount}** grades de hiérarchie synchronisés.\n- **${errors}** erreurs rencontrées (voir les logs).` 
       });
     } catch (err) {
       console.error("Erreur migration :", err);
-      await interaction.editReply({ content: "❌ Une erreur est survenue lors de la migration." });
+      await interaction.editReply({ content: "❌ Une erreur fatale est survenue lors de la migration : " + err.message });
     }
   }
 
