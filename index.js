@@ -580,34 +580,27 @@ client.on("interactionCreate", async (interaction) => {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      console.log("🚀 Lancement de la migration des rôles...");
       const { rows } = await db.query(`SELECT user_id, current_streak FROM users WHERE current_streak > 0`);
-      console.log(`📊 ${rows.length} utilisateurs avec un streak trouvés en base.`);
       
       let count = 0;
       let rolesCount = 0;
-      let errors = 0;
-      const guild = await client.guilds.fetch(GUILD_ID).catch(err => {
-        console.error("❌ Impossible de récupérer la Guild:", err);
-        return null;
-      });
+      let errors = [];
+      const guild = interaction.guild;
 
       if (!guild) {
-        return await interaction.editReply({ content: "❌ Erreur critique : Le bot ne parvient pas à accéder au serveur Discord (ID incorrect ou accès refusé)." });
+        return await interaction.editReply({ content: "❌ Erreur : Cette commande doit être lancée depuis un serveur." });
       }
 
       for (const row of rows) {
         try {
+          // Utiliser fetch pour être sûr d'avoir les données à jour
           const member = await guild.members.fetch(row.user_id).catch(() => null);
-          if (!member) {
-            console.log(`⚠️ Membre ${row.user_id} non trouvé sur le serveur.`);
-            continue;
-          }
+          if (!member) continue;
 
           // 1. Gérer le rôle de base (Lockin/Verified)
           if (ROLE_VERIFIED) {
             if (!member.roles.cache.has(ROLE_VERIFIED)) {
-              await member.roles.add(ROLE_VERIFIED).catch(e => console.error(`Erreur ajout ROLE_VERIFIED pour ${member.user.tag}:`, e.message));
+              await member.roles.add(ROLE_VERIFIED);
               count++;
             }
           }
@@ -619,33 +612,40 @@ client.on("interactionCreate", async (interaction) => {
           if (targetRole) {
             const hasTarget = member.roles.cache.has(targetRole.id);
             if (!hasTarget) {
-              console.log(`🔧 Attribution du rôle ${targetRole.name} (${targetRole.id}) à ${member.user.tag} (Streak: ${streak})`);
-              await member.roles.add(targetRole.id).catch(e => {
-                console.error(`❌ Erreur ajout rôle ${targetRole.name} pour ${member.user.tag}:`, e.message);
-                errors++;
-              });
-              rolesCount++;
+              try {
+                await member.roles.add(targetRole.id);
+                rolesCount++;
+              } catch (e) {
+                errors.push(`Identité: ${member.user.tag} | Streak: ${streak}j | Grade: ${targetRole.name} | Erreur: ${e.message}`);
+              }
             }
 
-            // Nettoyer les autres rôles de hiérarchie au passage
+            // Nettoyage des anciens rôles
             for (const r of ROLE_THRESHOLDS) {
               if (r.id !== targetRole.id && member.roles.cache.has(r.id)) {
-                await member.roles.remove(r.id).catch(e => console.error(`Erreur retrait ancien rôle ${r.name} pour ${member.user.tag}:`, e.message));
+                await member.roles.remove(r.id).catch(() => {});
               }
             }
           }
         } catch (mErr) {
-          console.error(`Erreur migration pour ${row.user_id}:`, mErr);
-          errors++;
+          errors.push(`Système: Erreur pour ID ${row.user_id} : ${mErr.message}`);
         }
       }
 
-      await interaction.editReply({ 
-        content: `✅ Migration terminée !\n- **${count}** membres ont reçu le rôle de base.\n- **${rolesCount}** grades de hiérarchie synchronisés.\n- **${errors}** erreurs rencontrées (voir les logs).` 
-      });
+      let responseText = `✅ **Migration terminée !**\n\n`;
+      responseText += `• **${count}** membres ont reçu le rôle de base.\n`;
+      responseText += `• **${rolesCount}** grades de hiérarchie synchronisés.\n`;
+      
+      if (errors.length > 0) {
+        responseText += `\n⚠️ **Erreurs rencontrées (${errors.length}) :**\n`;
+        responseText += "```" + errors.slice(0, 10).join("\n") + (errors.length > 10 ? "\n..." : "") + "```";
+        responseText += "\n> _Si l'erreur est 'Missing Permissions', assure-toi que le rôle du bot est positionné TOUT EN HAUT de la liste des rôles dans les paramètres Discord._";
+      }
+
+      await interaction.editReply({ content: responseText });
     } catch (err) {
       console.error("Erreur migration :", err);
-      await interaction.editReply({ content: "❌ Une erreur fatale est survenue lors de la migration : " + err.message });
+      await interaction.editReply({ content: "❌ Une erreur fatale est survenue : " + err.message });
     }
   }
 
