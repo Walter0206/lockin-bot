@@ -43,9 +43,11 @@ Tu y retrouveras toutes tes statistiques :
 ## ❄️ 3. Les Streak Freezes (Jokers)
 On a tous le droit à l'oubli ou au repos ! Le système te protège grâce aux "Streak Freezes".
 
-- **Comment en obtenir ?** Tu gagnes **+1 Freeze** automatiquement toutes les **500 minutes** de travail (Travail silencieux) cumulées.
+- **🎁 Cadeau de bienvenue :** Dès que tu signes ton contrat, on t'offre **2 Freezes** pour bien démarrer.
+- **🛡️ Bouclier de grâce :** Pendant tes **3 premiers jours** sur le serveur, ton streak est protégé automatiquement. Si tu oublies de valider, le bot sauve ton streak SANS consommer tes freezes.
+- **Comment en obtenir plus ?** Tu gagnes **+1 Freeze** automatiquement toutes les **500 minutes** de travail (Travail silencieux) cumulées.
 - **Comment les utiliser ?** C'est **100% automatique**. Si, à 23h59, tu as oublié de valider ta journée avec `/checkout` alors que tu avais un Streak en cours, le bot consommera un Freeze pour sauver ta série. 
-- 💔 *Attention : Si tu oublies de valider et que ton compteur de Freezes est à zéro, ton Streak redescendra malheureusement à 0 jour.*
+- 💔 *Attention : Si tu oublies de valider et que ton compteur de Freezes est à zéro (et que ton bouclier est expiré), ton Streak redescendra malheureusement à 0 jour.*
 
 ---
 

@@ -462,16 +462,17 @@ client.on("interactionCreate", async (interaction) => {
 
       try {
         const isoNow = new Date().toISOString();
-        
+
         // 1. D'abord on enregistre en base de données (Le plus important)
-        await db.query(`
-          UPDATE users 
-          SET motivations = $1,
-              commitment_signed = TRUE,
-              signed_at = $2,
-              failed_days_at_zero = 0
-          WHERE user_id = $3
-        `, [motivations, isoNow, userId]);
+          await db.query(`
+            UPDATE users 
+            SET motivations = $1,
+                commitment_signed = TRUE,
+                signed_at = $2,
+                freezes_available = 2,
+                failed_days_at_zero = 0
+            WHERE user_id = $3
+          `, [motivations, isoNow, userId]);
 
         console.log(`✅ Contrat signé en base pour ${interaction.user.tag}`);
 
@@ -581,7 +582,7 @@ client.on("interactionCreate", async (interaction) => {
 
     try {
       const { rows } = await db.query(`SELECT user_id, current_streak FROM users WHERE current_streak > 0`);
-      
+
       let count = 0;
       let rolesCount = 0;
       let errors = [];
@@ -623,7 +624,7 @@ client.on("interactionCreate", async (interaction) => {
             // Nettoyage des anciens rôles
             for (const r of ROLE_THRESHOLDS) {
               if (r.id !== targetRole.id && member.roles.cache.has(r.id)) {
-                await member.roles.remove(r.id).catch(() => {});
+                await member.roles.remove(r.id).catch(() => { });
               }
             }
           }
@@ -635,7 +636,7 @@ client.on("interactionCreate", async (interaction) => {
       let responseText = `✅ **Migration terminée !**\n\n`;
       responseText += `• **${count}** membres ont reçu le rôle de base.\n`;
       responseText += `• **${rolesCount}** grades de hiérarchie synchronisés.\n`;
-      
+
       if (errors.length > 0) {
         responseText += `\n⚠️ **Erreurs rencontrées (${errors.length}) :**\n`;
         responseText += "```" + errors.slice(0, 10).join("\n") + (errors.length > 10 ? "\n..." : "") + "```";
@@ -672,11 +673,11 @@ client.on("interactionCreate", async (interaction) => {
 
       for (let i = 0; i < rows.length; i++) {
         const streak = rows[i].current_streak;
-        
+
         // Trouver le grade correspondant au streak
         const currentGrade = ROLE_THRESHOLDS.find(r => streak >= r.days);
         const gradeName = currentGrade ? currentGrade.name : "Débutant";
-        
+
         // Emojis spécifiques pour le top 3 ou par palier
         let emojiPrefix = "🔹";
         if (streak >= 2500) emojiPrefix = "🩺";
@@ -895,7 +896,34 @@ cron.schedule("59 23 * * *", async () => {
     `, [today]);
 
     for (const user of rows) {
-      if (user.freezes_available > 0) {
+      // --- LOGIQUE DU BOUCLIER DE GRÂCE (3 JOURS) ---
+      let isUnderGracePeriod = false;
+      if (user.signed_at) {
+        const signedDate = new Date(user.signed_at);
+        const diffMs = new Date() - signedDate;
+        const diffHours = diffMs / (1000 * 60 * 60);
+        if (diffHours < 72) {
+          isUnderGracePeriod = true;
+        }
+      }
+
+      if (isUnderGracePeriod) {
+        // CASE 0: Sous bouclier de grâce -> On sauve le streak sans consommer de freeze
+        try {
+          await db.query(`
+            UPDATE users 
+            SET checkout_date = $1,
+                last_checkin = $1,
+                failed_days_at_zero = 0
+            WHERE user_id = $2
+          `, [today, user.user_id]);
+
+          const u = await client.users.fetch(user.user_id);
+          await u.send(`🛡️ **BOUCLIER DE GRÂCE ACTIVÉ** 🛡️\n\nTu as oublié de valider ta journée aujourd'hui. Comme tu viens de nous rejoindre (moins de 3 jours), j'ai activé ton bouclier de protection pour sauver ton streak sans utiliser tes freezes. \n\nProfite de cette période pour bien intégrer la routine ! 💪`);
+          console.log(`🛡️ Bouclier de grâce utilisé pour ${user.user_id}`);
+        } catch (err) { console.error(`Erreur bouclier grâce pour ${user.user_id}:`, err); }
+      }
+      else if (user.freezes_available > 0) {
         // CASE 1: L'utilisateur a des freezes -> On en utilise un
         try {
           await db.query(`
