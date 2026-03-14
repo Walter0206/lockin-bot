@@ -23,11 +23,22 @@ const TIMEZONE = "Europe/Paris";
 
 // Les rôles doivent être classés du plus grand nombre de jours au plus petit !
 const ROLE_THRESHOLDS = [
-  { days: 30, id: "1479824619518033942", name: "Légende" },
-  { days: 14, id: "1479824521014939728", name: "On fire" },
-  { days: 7, id: "1479824430443008232", name: "Engagé" },
-  { days: 3, id: "1479824330857779312", name: "Régulier" },
-  { days: 1, id: "1479823817856778444", name: "Débutant" }
+  { days: 2500, id: "1482342432430624768", name: "Médecin" },
+  { days: 2000, id: "1482342369604010175", name: "Externe" },
+  { days: 1500, id: "1482342288809136291", name: "Bachelor" },
+  { days: 1000, id: "1482341864349634745", name: "Grand Maître" },
+  { days: 500, id: "1482341763237675018", name: "Maître" },
+  { days: 250, id: "1482341671218974893", name: "Grand Sage" },
+  { days: 200, id: "1482341571117715547", name: "Sage" },
+  { days: 150, id: "1482341484807192586", name: "Moine" },
+  { days: 100, id: "1482341391500709969", name: "Stoïque" },
+  { days: 75, id: "1482341302891843634", name: "Endurant" },
+  { days: 50, id: "1482341210000588902", name: "Consistant" },
+  { days: 30, id: "1482341136793337866", name: "Discipliné" },
+  { days: 14, id: "1482333459409014935", name: "Concentré" },
+  { days: 7, id: "1482333383282397356", name: "Engagé" },
+  { days: 3, id: "1482333301640532050", name: "Étudiant" },
+  { days: 1, id: "1482333207356506315", name: "Déterminé" }
 ];
 
 // Nouveaux rôles d'accès
@@ -615,14 +626,21 @@ client.on("interactionCreate", async (interaction) => {
 
       for (let i = 0; i < rows.length; i++) {
         const streak = rows[i].current_streak;
-        let grade = "🌱 Débutant";
-        if (streak >= 30) grade = "👑 Légende";
-        else if (streak >= 14) grade = "🔥 On fire";
-        else if (streak >= 7) grade = "🛡️ Engagé";
-        else if (streak >= 3) grade = "🏃 Régulier";
+        
+        // Trouver le grade correspondant au streak
+        const currentGrade = ROLE_THRESHOLDS.find(r => streak >= r.days);
+        const gradeName = currentGrade ? currentGrade.name : "Débutant";
+        
+        // Emojis spécifiques pour le top 3 ou par palier
+        let emojiPrefix = "🔹";
+        if (streak >= 2500) emojiPrefix = "🩺";
+        else if (streak >= 1500) emojiPrefix = "🎓";
+        else if (streak >= 500) emojiPrefix = "⚔️";
+        else if (streak >= 100) emojiPrefix = "🏛️";
+        else if (streak >= 30) emojiPrefix = "🛡️";
 
-        const medal = medals[i] || "🔹";
-        description += `${medal} **<@${rows[i].user_id}>** : \`${streak}j\` (${grade})\n`;
+        const medal = medals[i] || emojiPrefix;
+        description += `${medal} **<@${rows[i].user_id}>** : \`${streak}j\` (${gradeName})\n`;
       }
 
       const embed = {
@@ -657,12 +675,13 @@ client.on("interactionCreate", async (interaction) => {
       title: "🏔️ La Montagne de la Consistance",
       description: "Voici les grades que tu peux débloquer sur le serveur en maintenant ton streak quotidien. " +
         "Chaque palier franchi montre ta détermination et ton engagement envers tes objectifs.\n\n" +
-        "**💎 Les Paliers :**\n" +
-        "👑 **Légende** (30 jours) : Le sommet ultime de l'autodiscipline.\n" +
-        "🔥 **On fire** (14 jours) : Une régularité à toute épreuve.\n" +
-        "🛡️ **Engagé** (7 jours) : Une habitude qui commence à s'ancrer.\n" +
-        "🏃 **Régulier** (3 jours) : Le plus dur est fait, tu es lancé.\n" +
-        "🌱 **Débutant** (1 jour) : Le premier pas du voyage.\n\n" +
+        "**📚 Les Paliers Majeurs :**\n" +
+        "🩺 **Médecin** (2500 jours) : L'aboutissement de 7 ans de discipline.\n" +
+        "🎓 **Bachelor/Externe** (1500-2000 jours) : La haute expertise.\n" +
+        "⚔️ **Maître** (500-1000 jours) : La maîtrise absolue du silence.\n" +
+        "🏛️ **Stoïque/Sage** (100-250 jours) : La sagesse ancrée.\n" +
+        "🛡️ **Discipliné/Consistant** (30-75 jours) : L'habitude est une seconde nature.\n" +
+        "🌱 **Déterminé/Engagé** (1-14 jours) : Les fondations de ta réussite.\n\n" +
         "**🔄 Le Cycle de la Réussite :**\n" +
         "1️⃣ **Matin (00h-09h)** : `/checkin` pour déclarer tes intentions.\n" +
         "2️⃣ **Journée** : `/start` et `/stop` pour mesurer ton effort.\n" +
