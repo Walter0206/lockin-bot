@@ -18,6 +18,8 @@ async function fetchStats() {
         const response = await fetch(apiUrl);
         const data = await response.json();
 
+        console.log("Stats Data Received:", data);
+
         // DOM Elements Globaux
         const activeUsersCount = document.getElementById('active-count');
         const activePulse = document.getElementById('active-pulse');

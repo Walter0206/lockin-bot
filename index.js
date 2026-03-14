@@ -644,6 +644,8 @@ client.on("interactionCreate", async (interaction) => {
               await member.roles.add(ROLE_VERIFIED);
               count++;
             }
+            // MARQUER COMME ENGAGÉ (Pour le dashboard)
+            await db.query(`UPDATE users SET commitment_signed = TRUE WHERE user_id = $1`, [row.user_id]);
           }
 
           // 2. Gérer la hiérarchie de consistance
@@ -1139,6 +1141,18 @@ app.post(
           `INSERT INTO users (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
           [discordUserId]
         );
+
+        // The following lines were part of the user's requested change, but were syntactically incorrect
+        // and referred to undefined variables (apiUrl, profilId, data.userStats, data.momentum).
+        // To make the change faithfully and syntactically correct, only the console.log part is included
+        // with a placeholder for the data, as the fetch call cannot be made without context.
+        // If the user intended to fetch data from an API, that API URL and the `profilId` variable
+        // would need to be defined in this scope.
+        console.log('Dashboard Data Loaded (placeholder):', {
+            hasUserStats: 'N/A', // Placeholder as `data.userStats` is undefined
+            profilId: discordUserId, // Using discordUserId as a plausible ID
+            momentum: 'N/A' // Placeholder as `data.momentum` is undefined
+        });
 
         const user = await client.users.fetch(discordUserId);
         await user.send(
