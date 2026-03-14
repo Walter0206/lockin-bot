@@ -46,6 +46,26 @@ const ROLE_PAID = process.env.DISCORD_PAID_ROLE_ID;
 const ROLE_VERIFIED = process.env.DISCORD_VERIFIED_ROLE_ID;
 const GUILD_ID = process.env.DISCORD_GUILD_ID;
 
+// IDs des salons pour les logs silencieux
+const CHAN_INTENTIONS = "1482418496586387666";
+const CHAN_LIVE = "1482418541390205011";
+const CHAN_BILANS = "1482419158011482132";
+
+// Fonction utilitaire pour envoyer des messages silencieux
+async function sendSilentMessage(channelId, content) {
+  try {
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (channel) {
+      await channel.send({ 
+        content: content, 
+        flags: [4096] // MessageFlags.SuppressNotifications
+      });
+    }
+  } catch (err) {
+    console.error(`Erreur lors de l'envoi du message silencieux sur canal ${channelId}:`, err);
+  }
+}
+
 // ============================================================
 // CRÉATION DU BOT
 // ============================================================
@@ -146,8 +166,12 @@ client.on("interactionCreate", async (interaction) => {
 
       if (priority) {
         await interaction.reply({ content: `✅ Check-in validé ! Rappel de ta priorité du jour : **${priority}**. Au boulot ! (Tape \`/start\` quand tu commences)`, ephemeral: true });
+        // Log Silencieux
+        await sendSilentMessage(CHAN_INTENTIONS, `🌱 **${interaction.user.tag}** a posé son intention : *${priority}*`);
       } else {
         await interaction.reply({ content: "✅ Check-in validé ! Bon courage pour tes objectifs du jour. N'oublie pas de lancer `/start` quand tu commences en Travail silencieux.", ephemeral: true });
+        // Log Silencieux
+        await sendSilentMessage(CHAN_INTENTIONS, `🌱 **${interaction.user.tag}** a validé sa présence le matin.`);
       }
 
       // Assurer la création de l'UUID en fond
@@ -176,6 +200,9 @@ client.on("interactionCreate", async (interaction) => {
         [userId, isoNow]
       );
       await interaction.reply({ content: "⏱️ Session de Travail silencieux démarrée ! Reste focus, on lâche rien. Tape `/stop` quand tu as terminé ou que tu fais une pause.", ephemeral: true });
+      
+      // Log Silencieux
+      await sendSilentMessage(CHAN_LIVE, `🚀 **${interaction.user.tag}** vient de se lancer en *Travail silencieux*.`);
 
       // Assurer la création de l'UUID en fond
       await ensureSecretId(userId);
@@ -242,6 +269,9 @@ client.on("interactionCreate", async (interaction) => {
         rewardMsg += `\n❄️ Bravo ! Tu as franchi un palier et gagné **${earned} Streak Freeze(s)** !`;
       }
       await interaction.reply({ content: rewardMsg, ephemeral: true });
+
+      // Log Silencieux
+      await sendSilentMessage(CHAN_LIVE, `⏸️ **${interaction.user.tag}** a terminé sa session de travail (**${minutes} minutes** ajoutées).`);
     } catch (err) {
       console.error("Erreur !stop :", err);
       await interaction.reply({ content: "❌ Une erreur est survenue : " + err.message, ephemeral: true });
@@ -369,6 +399,16 @@ client.on("interactionCreate", async (interaction) => {
           ephemeral: true
         });
       }
+
+      // --- LOG SILENCIEUX (LE BILAN PUBLIC) ---
+      const gradeInfo = ROLE_THRESHOLDS.find(r => streak >= r.days);
+      const gradeName = gradeInfo ? gradeInfo.name : "Débutant";
+      let publicBilan = `🌌 **Bilan de ${interaction.user.tag}**\n`;
+      publicBilan += `🔥 Streak actuel : **${streak} jours** (Grade : *${gradeName}*)\n`;
+      const finalPriority = inlinePriority || user.current_priority;
+      if (finalPriority) publicBilan += `🎯 Demain, sa priorité est : *${finalPriority}*`;
+      
+      await sendSilentMessage(CHAN_BILANS, publicBilan);
 
     } catch (err) {
       console.error("Erreur !checkout :", err);
