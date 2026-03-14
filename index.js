@@ -580,23 +580,48 @@ client.on("interactionCreate", async (interaction) => {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const { rows } = await db.query(`SELECT user_id FROM users WHERE current_streak > 0`);
+      const { rows } = await db.query(`SELECT user_id, current_streak FROM users WHERE current_streak > 0`);
       let count = 0;
+      let rolesCount = 0;
       const guild = await client.guilds.fetch(GUILD_ID);
 
       for (const row of rows) {
         try {
           const member = await guild.members.fetch(row.user_id).catch(() => null);
-          if (member && !member.roles.cache.has(ROLE_VERIFIED)) {
-            await member.roles.add(ROLE_VERIFIED);
-            count++;
+          if (member) {
+            // 1. Gérer le rôle de base (Lockin/Verified)
+            if (ROLE_VERIFIED && !member.roles.cache.has(ROLE_VERIFIED)) {
+              await member.roles.add(ROLE_VERIFIED);
+              count++;
+            }
+
+            // 2. Gérer la hiérarchie de consistance
+            const streak = row.current_streak;
+            const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
+
+            if (targetRole) {
+              const hasTarget = member.roles.cache.has(targetRole.id);
+              if (!hasTarget) {
+                await member.roles.add(targetRole.id);
+                rolesCount++;
+              }
+
+              // Nettoyer les autres rôles de hiérarchie au passage
+              for (const r of ROLE_THRESHOLDS) {
+                if (r.id !== targetRole.id && member.roles.cache.has(r.id)) {
+                  await member.roles.remove(r.id);
+                }
+              }
+            }
           }
         } catch (mErr) {
           console.error(`Erreur migration pour ${row.user_id}:`, mErr);
         }
       }
 
-      await interaction.editReply({ content: `✅ Migration terminée ! **${count}** membres ont reçu le rôle Lockin.` });
+      await interaction.editReply({ 
+        content: `✅ Migration terminée !\n- **${count}** membres ont reçu le rôle de base.\n- **${rolesCount}** grades de hiérarchie synchronisés.` 
+      });
     } catch (err) {
       console.error("Erreur migration :", err);
       await interaction.editReply({ content: "❌ Une erreur est survenue lors de la migration." });
