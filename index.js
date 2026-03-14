@@ -823,13 +823,19 @@ app.get("/api/stats", async (req, res) => {
     // --- NOUVELLES STATS DE MOMENTUM COMMUNAUTAIRE ---
     const { isoDate } = getParisDateInfo();
     const { rows: momentumRows } = await db.query(`
+      WITH committed_users AS (
+        SELECT * FROM users 
+        WHERE commitment_signed = TRUE 
+           OR total_minutes > 0 
+           OR current_streak > 0
+      )
       SELECT 
-        COUNT(*) FILTER (WHERE commitment_signed = TRUE) AS total_committed,
-        COUNT(*) FILTER (WHERE commitment_signed = TRUE AND checkin_date = $1) AS checkin_count,
-        COUNT(*) FILTER (WHERE commitment_signed = TRUE AND today_minutes > 0) AS work_count,
-        COUNT(*) FILTER (WHERE commitment_signed = TRUE AND checkout_date = $1) AS checkout_count,
-        COUNT(*) FILTER (WHERE commitment_signed = TRUE AND checkin_date = $1 AND checkout_date = $1 AND today_minutes > 0) AS perfect_day_count
-      FROM users
+        COUNT(*) AS total_committed,
+        COUNT(*) FILTER (WHERE checkin_date = $1) AS checkin_count,
+        COUNT(*) FILTER (WHERE today_minutes > 0) AS work_count,
+        COUNT(*) FILTER (WHERE checkout_date = $1) AS checkout_count,
+        COUNT(*) FILTER (WHERE checkin_date = $1 AND checkout_date = $1 AND today_minutes > 0) AS perfect_day_count
+      FROM committed_users
     `, [isoDate]);
 
     const globalStats = statsRows[0];
