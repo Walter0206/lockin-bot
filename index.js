@@ -62,8 +62,7 @@ client.on("ready", () => {
 // ============================================================
 
 client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
+  console.log(`[Interaction] Type: ${interaction.type} | User: ${interaction.user.tag} | ID: ${interaction.customId || interaction.commandName}`);
   const userId = interaction.user.id;
 
 
@@ -828,16 +827,16 @@ cron.schedule("59 23 * * *", async () => {
           await u.send(`❄️ **STREAK FREEZE AUTOMATIQUE** ❄️\n\nTu as oublié de valider ta journée aujourd'hui, mais j'ai utilisé un de tes freezes pour sauver ton streak de **${user.current_streak} jours**.\n\nIl te reste **${user.freezes_available - 1}** freeze(s).`);
           console.log(`❄️ Freeze automatique utilisé pour ${user.user_id}`);
         } catch (err) { console.error(`Erreur freeze auto pour ${user.user_id}:`, err); }
-      } 
+      }
       else {
         // CASE 2: Pas de freezes -> Le streak tombe à zéro ou l'inactivité s'accumule
         try {
           let newFailedDays = (user.failed_days_at_zero || 0) + 1;
-          
+
           if (user.current_streak > 0) {
             // Premier jour d'échec sans freeze : Perte du streak
             await db.query(`UPDATE users SET current_streak = 0, failed_days_at_zero = 1 WHERE user_id = $1`, [user.user_id]);
-            
+
             // Retrait des rôles
             const guild = client.guilds.cache.get(GUILD_ID) || client.guilds.cache.first();
             const member = await guild?.members.fetch(user.user_id).catch(() => null);
@@ -848,7 +847,7 @@ cron.schedule("59 23 * * *", async () => {
             const u = await client.users.fetch(user.user_id);
             await u.send(`💔 **STREAK PERDU** 💔\n\nTu n'as pas validé ta journée et tu n'as plus de freeze. Ton streak retombe à 0.\n⚠️ **Attention :** Si tu ne valides pas tes objectifs demain non plus, tu seras exclu(e) de la communauté.`);
             console.log(`💔 Streak cassé pour ${user.user_id}`);
-          } 
+          }
           else if (newFailedDays >= 2) {
             // Deuxième jour d'échec à zéro streak : EXCLUSION
             await db.query(`
@@ -870,7 +869,7 @@ cron.schedule("59 23 * * *", async () => {
             const u = await client.users.fetch(user.user_id);
             await u.send(`🚫 **EXCLUSION TEMPORAIRE** 🚫\n\nTu n'as pas manifesté d'activité depuis 2 jours consécutifs. La discipline est la clé de la réussite.\n\nTon accès aux salons a été suspendu. Pour revenir, tu dois signer de nouveau ton **Contrat d'Engagement** dans le salon dédié.`);
             console.log(`🚫 Utilisateur ${user.user_id} exclu pour inactivité.`);
-          } 
+          }
           else {
             // Incrémenter simplement les jours d'échec (si déjà à 0 streak)
             await db.query(`UPDATE users SET failed_days_at_zero = $1 WHERE user_id = $2`, [newFailedDays, user.user_id]);
@@ -925,11 +924,11 @@ app.post(
     // ----- PAIEMENT VALIDÉ : Attribuer le rôle Discord -----
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
-      
+
       let discordUserId = session.metadata?.discord_user_id;
 
       if (!discordUserId && session.custom_fields) {
-        const discordField = session.custom_fields.find(f => 
+        const discordField = session.custom_fields.find(f =>
           f.text && (f.label.type === 'custom' && f.label.custom.toLowerCase().includes('discord'))
         );
         if (discordField) {
@@ -947,7 +946,7 @@ app.post(
       try {
         const guild = await client.guilds.fetch(GUILD_ID);
         const member = await guild.members.fetch(discordUserId);
-        
+
         if (ROLE_PAID) {
           await member.roles.add(ROLE_PAID);
           console.log(`✅ Rôle Onboarding attribué à ${discordUserId} (paiement Stripe validé)`);
@@ -984,10 +983,10 @@ app.post(
       try {
         const guild = await client.guilds.fetch(GUILD_ID);
         const member = await guild.members.fetch(discordUserId);
-        
+
         if (ROLE_VERIFIED) await member.roles.remove(ROLE_VERIFIED);
         if (ROLE_PAID) await member.roles.remove(ROLE_PAID);
-        
+
         for (const r of ROLE_THRESHOLDS) {
           if (member.roles.cache.has(r.id)) {
             await member.roles.remove(r.id);
