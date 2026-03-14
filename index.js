@@ -447,11 +447,12 @@ client.on("interactionCreate", async (interaction) => {
 
     if (interaction.customId === 'commitment_modal') {
       const motivations = interaction.fields.getTextInputValue('motivationsInput');
-      const commitmentDaily = interaction.fields.getTextInputValue('commitmentDaily');
-      const commitmentDnd = interaction.fields.getTextInputValue('commitmentDnd');
+      const userId = interaction.user.id;
 
       try {
         const isoNow = new Date().toISOString();
+        
+        // 1. D'abord on enregistre en base de données (Le plus important)
         await db.query(`
           UPDATE users 
           SET motivations = $1,
@@ -461,13 +462,23 @@ client.on("interactionCreate", async (interaction) => {
           WHERE user_id = $3
         `, [motivations, isoNow, userId]);
 
-        // Echange de rôles
-        const guild = await client.guilds.fetch(GUILD_ID);
-        const member = await guild.members.fetch(userId);
+        console.log(`✅ Contrat signé en base pour ${interaction.user.tag}`);
 
-        if (ROLE_VERIFIED) await member.roles.add(ROLE_VERIFIED);
-        if (ROLE_PAID && member.roles.cache.has(ROLE_PAID)) {
-          await member.roles.remove(ROLE_PAID);
+        // 2. Ensuite on tente de gérer les rôles (Optionnel si admin/permissions)
+        try {
+          const guild = await client.guilds.fetch(GUILD_ID);
+          const member = await guild.members.fetch(userId);
+
+          if (ROLE_VERIFIED) {
+            await member.roles.add(ROLE_VERIFIED);
+          }
+          if (ROLE_PAID && member.roles.cache.has(ROLE_PAID)) {
+            await member.roles.remove(ROLE_PAID);
+          }
+          console.log(`✅ Rôles mis à jour pour ${interaction.user.tag}`);
+        } catch (roleErr) {
+          console.warn(`⚠️ Impossible de modifier les rôles de ${interaction.user.tag} (Probablement Admin ou permissions insuffisantes) :`, roleErr.message);
+          // On ne bloque pas la réponse à l'utilisateur ici
         }
 
         await interaction.reply({
@@ -475,8 +486,10 @@ client.on("interactionCreate", async (interaction) => {
           ephemeral: true
         });
       } catch (err) {
-        console.error("Erreur Commitment Modal :", err);
-        await interaction.reply({ content: "❌ Une erreur est survenue lors de la validation de ton contrat.", ephemeral: true });
+        console.error("Erreur critique Commitment Modal :", err);
+        if (!interaction.replied) {
+          await interaction.reply({ content: "❌ Une erreur est survenue lors de la validation de ton contrat.", ephemeral: true });
+        }
       }
     }
   }
