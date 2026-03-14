@@ -10,18 +10,18 @@ Voici tout ce dont tu as besoin pour bien démarrer.
 Pour faire monter ton **Streak** (ta série de jours consécutifs de travail) et débloquer des rôles prestigieux, tu dois compléter ces trois étapes chaque jour :
 
 ### 🌅 A. Le matin : `/checkin`
-- **Quand ?** Entre **00h00 et 08h59** (Heure de Paris).
-- **Pourquoi ?** Pour déclarer ta présence et ton intention de travailler aujourd'hui.
+- **Quand ?** Entre **00h00 et 10h00** (Heure de Paris).
+- **Pourquoi ?** Pour déclarer ta présence et ton intention de travailler aujourdhui.
 - **Comment ?** Tape simplement `/checkin` dans le salon. 
 
 ### 💻 B. Pendant la journée : `/start` et `/stop`
 C'est le moment de travailler.
 - **`/start`** : Lance le chronomètre quand tu débutes une session de concentration.
 - **`/stop`** : Arrête le chronomètre quand tu as terminé ou que tu prends une pause.
-  - ⚠️ *Note : Pour ta santé santé et pour éviter les abus, une session ininterrompue est plafonnée à **3 heures (180 minutes) maximum**. Pense à faire des pauses !*
+  - ⚠️ *Note : Pour ta santé et pour éviter les abus, une session ininterrompue est plafonnée à **3 heures (180 minutes) maximum**. Pense à faire des pauses !*
 
 ### 🌃 C. Le soir : `/checkout`
-- **Quand ?** Entre **21h00 et 23h59** (Heure de Paris).
+- **Quand ?** Entre **19h00 et 23h59** (Heure de Paris).
 - **Pourquoi ?** Pour valider ta journée. 
 - **Comment ça marche ?** Si tu as bien fait ton `/checkin` ce matin ET que tu as accumulé du temps de travail grâce à `/start`/`/stop`, ton Streak 🔗 augmentera de +1 jour.
 - **Bonus :** Le bot te demandera de définir ta priorité pour le lendemain (tu as 3 minutes pour l'écrire).
@@ -52,11 +52,12 @@ On a tous le droit à l'oubli ou au repos ! Le système te protège grâce aux "
 ## 🏆 4. L'Évolution : Les Rôles de Régularité
 Ta régularité est récompensée sur le serveur ! Maintiens ton Streak pour débloquer de nouveaux rôles automatiques et montrer ta détermination à la communauté :
 
-- 🌱 **Débutant** : 1 jour
-- 🏃 **Régulier** : 3 jours
-- 🛡️ **Engagé** : 7 jours
-- 🔥 **On fire** : 14 jours
-- 👑 **Légende** : 30 jours (Le palier ultime !)
+- 🌱 **Déterminé** : 1 jour
+- 📚 **Étudiant / Engagé** : 3 - 7 jours
+- 🛡️ **Discipliné / Consistant** : 30 - 50 jours
+- 🏯 **Stoïque / Moine** : 100 - 150 jours
+- ⚔️ **Maître / Grand Maître** : 500 - 1000 jours
+- 🩺 **Médecin** : 2500 jours (L'aboutissement ultime !)
 
 ---
 

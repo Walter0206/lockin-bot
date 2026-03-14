@@ -127,9 +127,9 @@ client.on("interactionCreate", async (interaction) => {
   if (interaction.commandName === "checkin") {
     const { isoDate, hour } = getParisDateInfo();
 
-    // Vérification de l'heure (00:00 à 08:59)
-    if (hour >= 9) {
-      return await interaction.reply({ content: "❌ Trop tard ! Le check-in matinal n'est disponible qu'entre 00h00 et 08h59 (Heure de Paris).", ephemeral: true });
+    // Vérification de l'heure (00h00 à 09h59)
+    if (hour >= 10) {
+      return await interaction.reply({ content: "❌ Trop tard ! L'intention matinale (/checkin) n'est disponible qu'entre 00h00 et 10h00 (Heure de Paris).", ephemeral: true });
     }
 
     try {
@@ -254,9 +254,9 @@ client.on("interactionCreate", async (interaction) => {
   if (interaction.commandName === "checkout") {
     const { isoDate, hour } = getParisDateInfo();
 
-    // Vérification de l'heure (21:00 à 23:59)
-    if (hour < 21) {
-      return await interaction.reply({ content: "❌ Trop tôt ! Le check-out du soir n'est disponible qu'entre 21h00 et 23h59 (Heure de Paris).", ephemeral: true });
+    // Vérification de l'heure (19h00 à 23h59)
+    if (hour < 19) {
+      return await interaction.reply({ content: "❌ Trop tôt ! Le bilan du soir (/checkout) n'est disponible qu'entre 19h00 et 23h59 (Heure de Paris).", ephemeral: true });
     }
 
     try {
@@ -729,9 +729,9 @@ client.on("interactionCreate", async (interaction) => {
         "🛡️ **Discipliné/Consistant** (30-75 jours) : L'habitude est une seconde nature.\n" +
         "🌱 **Déterminé/Engagé** (1-14 jours) : Les fondations de ta réussite.\n\n" +
         "**🔄 Le Cycle de la Réussite :**\n" +
-        "1️⃣ **Matin (00h-09h)** : `/checkin` pour déclarer tes intentions.\n" +
+        "1️⃣ **Matin (00h-10h)** : `/checkin` pour déclarer tes intentions.\n" +
         "2️⃣ **Journée** : `/start` et `/stop` pour mesurer ton effort.\n" +
-        "3️⃣ **Soir (21h-00h)** : `/checkout` pour valider ta journée et ton streak.\n\n" +
+        "3️⃣ **Soir (19h-00h)** : `/checkout` pour valider ta journée et ton streak.\n\n" +
         "*N'oublie pas : La consistance bat l'intensité à chaque fois. Travaille en silence, laisse tes résultats faire du bruit.*",
       color: 0x3498DB, // Blue
       image: {
