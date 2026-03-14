@@ -118,6 +118,11 @@ h1 span {
     text-align: center;
 }
 
+.momentum-panel {
+    padding: 30px;
+    margin-bottom: 24px;
+}
+
 .global-stats-panel {
     padding: 30px;
     margin-bottom: 24px;
@@ -501,4 +506,71 @@ h2 {
     100% {
         box-shadow: 0 0 25px rgba(99, 102, 241, 0.6);
     }
+}
+
+/* Momentum Progress Styles */
+.momentum-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.momentum-item {
+    display: grid;
+    grid-template-columns: 120px 1fr 60px;
+    align-items: center;
+    gap: 20px;
+    padding: 10px;
+    border-radius: 12px;
+    transition: background 0.2s ease;
+}
+
+.momentum-item:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.momentum-label {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.progress-container {
+    height: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 10px;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bar-checkin { background: linear-gradient(90deg, #4f8eff, #60a5fa); }
+.bar-work { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.bar-checkout { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+.bar-perfect { background: linear-gradient(90deg, #10b981, #34d399); box-shadow: 0 0 15px rgba(16, 185, 129, 0.3); }
+
+.momentum-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+@media (max-width: 500px) {
+    .momentum-item {
+        grid-template-columns: 1fr 60px;
+        grid-template-rows: auto auto;
+        gap: 10px;
+    }
+    .momentum-label { grid-column: 1; }
+    .momentum-value { grid-column: 2; grid-row: 1; }
+    .progress-container { grid-column: 1 / span 2; grid-row: 2; }
 }

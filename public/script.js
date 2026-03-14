@@ -60,6 +60,24 @@ async function fetchStats() {
             }
         }
 
+        // Mettre à jour le Momentum de la Communauté
+        if (data.momentum) {
+            const { total, checkins, work, checkouts, perfectDays } = data.momentum;
+            
+            const updateBar = (id, ratioId, value, total) => {
+                const percent = total > 0 ? (value / total) * 100 : 0;
+                const bar = document.getElementById(id);
+                const text = document.getElementById(ratioId);
+                if (bar) bar.style.width = `${percent}%`;
+                if (text) text.innerText = `${value}/${total}`;
+            };
+
+            updateBar('checkin-progress', 'checkin-ratio', checkins, total);
+            updateBar('work-progress', 'work-ratio', work, total);
+            updateBar('checkout-progress', 'checkout-ratio', checkouts, total);
+            updateBar('perfect-progress', 'perfect-ratio', perfectDays, total);
+        }
+
         // Mettre à jour l'Espace Personnel (si les données sont présentes)
         if (data.userStats) {
             // Afficher le panneau

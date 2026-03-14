@@ -820,8 +820,21 @@ app.get("/api/stats", async (req, res) => {
       WHERE session_start IS NOT NULL
     `);
 
+    // --- NOUVELLES STATS DE MOMENTUM COMMUNAUTAIRE ---
+    const { isoDate } = getParisDateInfo();
+    const { rows: momentumRows } = await db.query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE commitment_signed = TRUE) AS total_committed,
+        COUNT(*) FILTER (WHERE commitment_signed = TRUE AND checkin_date = $1) AS checkin_count,
+        COUNT(*) FILTER (WHERE commitment_signed = TRUE AND today_minutes > 0) AS work_count,
+        COUNT(*) FILTER (WHERE commitment_signed = TRUE AND checkout_date = $1) AS checkout_count,
+        COUNT(*) FILTER (WHERE commitment_signed = TRUE AND checkin_date = $1 AND checkout_date = $1 AND today_minutes > 0) AS perfect_day_count
+      FROM users
+    `, [isoDate]);
+
     const globalStats = statsRows[0];
     const activeCount = parseInt(countRows[0].active_count, 10);
+    const momentum = momentumRows[0];
 
     let responsePayload = {
       globalStats: {
@@ -831,7 +844,14 @@ app.get("/api/stats", async (req, res) => {
         year: parseInt(globalStats.year || 0, 10),
         allTime: parseInt(globalStats.all_time || 0, 10)
       },
-      activeCount: activeCount
+      activeCount: activeCount,
+      momentum: {
+        total: parseInt(momentum.total_committed || 0, 10),
+        checkins: parseInt(momentum.checkin_count || 0, 10),
+        work: parseInt(momentum.work_count || 0, 10),
+        checkouts: parseInt(momentum.checkout_count || 0, 10),
+        perfectDays: parseInt(momentum.perfect_day_count || 0, 10)
+      }
     };
 
     // Si un profil est demandé, on tente de récupérer ses données
