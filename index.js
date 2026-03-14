@@ -603,7 +603,7 @@ client.on("interactionCreate", async (interaction) => {
         FROM users 
         WHERE current_streak > 0 
         ORDER BY current_streak DESC 
-        LIMIT 10
+        LIMIT 50
       `);
 
       if (rows.length === 0) {
@@ -614,24 +614,31 @@ client.on("interactionCreate", async (interaction) => {
       const medals = ["🥇", "🥈", "🥉"];
 
       for (let i = 0; i < rows.length; i++) {
+        const streak = rows[i].current_streak;
+        let grade = "🌱 Débutant";
+        if (streak >= 30) grade = "👑 Légende";
+        else if (streak >= 14) grade = "🔥 On fire";
+        else if (streak >= 7) grade = "🛡️ Engagé";
+        else if (streak >= 3) grade = "🏃 Régulier";
+
         const medal = medals[i] || "🔹";
-        description += `${medal} **<@${rows[i].user_id}>** : 🔥 \`${rows[i].current_streak} jours\`\n`;
+        description += `${medal} **<@${rows[i].user_id}>** : \`${streak}j\` (${grade})\n`;
       }
 
       const embed = {
-        title: "🏆 TOP 10 - Les Rois de la Consistance",
+        title: "🏆 TOP 50 - La Hiérarchie de la Consistance",
         description: description,
         color: 0xFFD700, // Gold
         thumbnail: {
           url: client.user.displayAvatarURL()
         },
         footer: {
-          text: "Continuez comme ça, la régularité paye toujours ! 💪"
+          text: "Seul toi peux voir ce message. La régularité paye toujours ! 💪"
         },
         timestamp: new Date()
       };
 
-      await interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed], ephemeral: true });
     } catch (err) {
       console.error("Erreur !classement :", err);
       await interaction.reply({ content: "❌ Une erreur est survenue lors de la récupération du classement.", ephemeral: true });
