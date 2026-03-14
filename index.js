@@ -1142,18 +1142,6 @@ app.post(
           [discordUserId]
         );
 
-        // The following lines were part of the user's requested change, but were syntactically incorrect
-        // and referred to undefined variables (apiUrl, profilId, data.userStats, data.momentum).
-        // To make the change faithfully and syntactically correct, only the console.log part is included
-        // with a placeholder for the data, as the fetch call cannot be made without context.
-        // If the user intended to fetch data from an API, that API URL and the `profilId` variable
-        // would need to be defined in this scope.
-        console.log('Dashboard Data Loaded (placeholder):', {
-            hasUserStats: 'N/A', // Placeholder as `data.userStats` is undefined
-            profilId: discordUserId, // Using discordUserId as a plausible ID
-            momentum: 'N/A' // Placeholder as `data.momentum` is undefined
-        });
-
         const user = await client.users.fetch(discordUserId);
         await user.send(
           `🎉 **Bienvenue dans Med in silence !**\n\nTon paiement a été validé, tu as maintenant accès à toute la communauté !\n\nCommence par taper \`/checkin\` dans le serveur pour enregistrer ta première journée. Les sessions live sont chaque soir de **20h30 à 21h**. On compte sur toi ! 💪`
