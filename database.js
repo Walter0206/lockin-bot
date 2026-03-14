@@ -55,9 +55,10 @@ db.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS motivations TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS commitment_signed BOOLEAN DEFAULT FALSE;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS signed_at TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_days_at_zero INTEGER DEFAULT 0;
     `);
   })
-  .then(() => console.log("✅ Colonnes de commitment vérifiées."))
+  .then(() => console.log("✅ Colonnes de commitment et d'exclusion vérifiées."))
   .catch(err => console.error("❌ Erreur critique lors de la connexion/création de la table :", err));
 
 module.exports = db;

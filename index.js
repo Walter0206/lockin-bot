@@ -292,7 +292,8 @@ client.on("interactionCreate", async (interaction) => {
         UPDATE users 
         SET checkout_date = $1,
             current_streak = $2,
-            last_checkin = $1
+            last_checkin = $1,
+            failed_days_at_zero = 0
         WHERE user_id = $3
       `, [isoDate, streak, userId]);
 
@@ -456,7 +457,8 @@ client.on("interactionCreate", async (interaction) => {
           UPDATE users 
           SET motivations = $1,
               commitment_signed = TRUE,
-              signed_at = $2
+              signed_at = $2,
+              failed_days_at_zero = 0
           WHERE user_id = $3
         `, [motivations, isoNow, userId]);
 
@@ -801,76 +803,83 @@ cron.schedule("59 23 * * *", async () => {
   const today = new Date().toISOString().split("T")[0];
 
   try {
-    // On cherche les utilisateurs qui n'ont pas fait de checkout aujourd'hui MAIS qui ont un streak actif
+    // On cherche tous les utilisateurs actifs/engagés qui n'ont pas validé aujourd'hui
     const { rows } = await db.query(`
       SELECT * FROM users 
-      WHERE (checkout_date IS NULL OR checkout_date != $1)
-      AND current_streak > 0
+      WHERE commitment_signed = TRUE 
+      AND (checkout_date IS NULL OR checkout_date != $1)
     `, [today]);
 
     for (const user of rows) {
       if (user.freezes_available > 0) {
+        // CASE 1: L'utilisateur a des freezes -> On en utilise un
         try {
-          // Consommation du freeze et MAJ des dates pour compenser l'oubli de checkout
           await db.query(`
             UPDATE users 
             SET freezes_available = freezes_available - 1,
                 checkout_date = $1,
                 last_checkin = $1,
-                last_freeze_date = $1
+                last_freeze_date = $1,
+                failed_days_at_zero = 0
             WHERE user_id = $2
           `, [today, user.user_id]);
 
-          // Notification par DM
           const u = await client.users.fetch(user.user_id);
-          await u.send(
-            `❄️ **STREAK FREEZE AUTOMATIQUE** ❄️\n\nTu as oublié de valider ta journée aujourd'hui, mais pas de panique ! J'ai utilisé l'un de tes freezes pour sauver ton streak de **${user.current_streak} jours**.\n\nIl te reste **${user.freezes_available - 1}** freeze(s). Continue comme ça, ne lâche rien ! 💪`
-          );
+          await u.send(`❄️ **STREAK FREEZE AUTOMATIQUE** ❄️\n\nTu as oublié de valider ta journée aujourd'hui, mais j'ai utilisé un de tes freezes pour sauver ton streak de **${user.current_streak} jours**.\n\nIl te reste **${user.freezes_available - 1}** freeze(s).`);
           console.log(`❄️ Freeze automatique utilisé pour ${user.user_id}`);
-        } catch (err) {
-          console.error(`Erreur freeze auto pour ${user.user_id}:`, err);
-        }
-      } else {
-        if (user.current_streak > 0) {
-          try {
-            // Pas de freeze disponible -> Perte du streak
+        } catch (err) { console.error(`Erreur freeze auto pour ${user.user_id}:`, err); }
+      } 
+      else {
+        // CASE 2: Pas de freezes -> Le streak tombe à zéro ou l'inactivité s'accumule
+        try {
+          let newFailedDays = (user.failed_days_at_zero || 0) + 1;
+          
+          if (user.current_streak > 0) {
+            // Premier jour d'échec sans freeze : Perte du streak
+            await db.query(`UPDATE users SET current_streak = 0, failed_days_at_zero = 1 WHERE user_id = $1`, [user.user_id]);
+            
+            // Retrait des rôles
+            const guild = client.guilds.cache.get(GUILD_ID) || client.guilds.cache.first();
+            const member = await guild?.members.fetch(user.user_id).catch(() => null);
+            if (member) {
+              for (const r of ROLE_THRESHOLDS) { if (member.roles.cache.has(r.id)) await member.roles.remove(r.id); }
+            }
+
+            const u = await client.users.fetch(user.user_id);
+            await u.send(`💔 **STREAK PERDU** 💔\n\nTu n'as pas validé ta journée et tu n'as plus de freeze. Ton streak retombe à 0.\n⚠️ **Attention :** Si tu ne valides pas tes objectifs demain non plus, tu seras exclu(e) de la communauté.`);
+            console.log(`💔 Streak cassé pour ${user.user_id}`);
+          } 
+          else if (newFailedDays >= 2) {
+            // Deuxième jour d'échec à zéro streak : EXCLUSION
             await db.query(`
               UPDATE users 
-              SET current_streak = 0
+              SET commitment_signed = FALSE, 
+                  failed_days_at_zero = 0,
+                  current_priority = NULL,
+                  motivations = NULL
               WHERE user_id = $1
             `, [user.user_id]);
 
-            // --- RETRAIT DE TOUS LES RÔLES DE STREAK ---
-            try {
-              const guild = client.guilds.cache.first();
-              if (guild) {
-                const member = await guild.members.fetch(user.user_id).catch(() => null);
-                if (member) {
-                  for (const r of ROLE_THRESHOLDS) {
-                    if (member.roles.cache.has(r.id)) {
-                      await member.roles.remove(r.id);
-                    }
-                  }
-                }
-              }
-            } catch (roleErr) {
-              console.error("Erreur retrait rôle auto (cron):", roleErr);
+            const guild = client.guilds.cache.get(GUILD_ID) || client.guilds.cache.first();
+            const member = await guild?.members.fetch(user.user_id).catch(() => null);
+            if (member && ROLE_VERIFIED) {
+              await member.roles.remove(ROLE_VERIFIED);
+              if (ROLE_PAID) await member.roles.add(ROLE_PAID); // Retour au rôle d'attente si applicable
             }
 
-            // Notification par DM
             const u = await client.users.fetch(user.user_id);
-            await u.send(
-              `💔 **STREAK PERDU** 💔\n\nTu n'as pas validé ta journée aujourd'hui et tu n'avais plus de ❄️ Streak Freeze...\nTon streak de **${user.current_streak} jours** retombe à 0. C'est le moment d'en démarrer un nouveau dès demain, on recommence sur de bonnes bases ! 💪`
-            );
-            console.log(`💔 Streak cassé pour ${user.user_id}`);
-          } catch (err) {
-            console.error(`Erreur reset streak pour ${user.user_id}:`, err);
+            await u.send(`🚫 **EXCLUSION TEMPORAIRE** 🚫\n\nTu n'as pas manifesté d'activité depuis 2 jours consécutifs. La discipline est la clé de la réussite.\n\nTon accès aux salons a été suspendu. Pour revenir, tu dois signer de nouveau ton **Contrat d'Engagement** dans le salon dédié.`);
+            console.log(`🚫 Utilisateur ${user.user_id} exclu pour inactivité.`);
+          } 
+          else {
+            // Incrémenter simplement les jours d'échec (si déjà à 0 streak)
+            await db.query(`UPDATE users SET failed_days_at_zero = $1 WHERE user_id = $2`, [newFailedDays, user.user_id]);
           }
-        }
+        } catch (err) { console.error(`Erreur gestion échec pour ${user.user_id}:`, err); }
       }
     }
   } catch (err) {
-    console.error("Erreur globale Auto-Freeze :", err);
+    console.error("Erreur globale Auto-Freeze/Exclusion :", err);
   }
 
   // RÉINITIALISATION JOURNALIÈRE POUR TOUT LE MONDE À MINUIT
