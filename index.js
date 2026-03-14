@@ -1188,6 +1188,22 @@ app.listen(PORT, () => {
 
 
 // ============================================================
+// TÂCHE AUTOMATIQUE : RESET QUOTIDIEN TODAY_MINUTES (MINUIT)
+// ============================================================
+
+cron.schedule("0 0 * * *", async () => {
+  try {
+    await db.query(`UPDATE users SET today_minutes = 0`);
+    console.log("Reset des minutes quotidiennes (today_minutes)");
+  } catch (err) {
+    console.error("Erreur reset quotidien :", err);
+  }
+}, {
+  timezone: "Europe/Paris"
+});
+
+
+// ============================================================
 // TÂCHE AUTOMATIQUE : RESET HEBDOMADAIRE (DIMANCHE MINUIT)
 // ============================================================
 
