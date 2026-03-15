@@ -28,11 +28,11 @@ db.query(`
     today_minutes INTEGER DEFAULT 0,
     current_streak INTEGER DEFAULT 0,
     best_streak INTEGER DEFAULT 0,
-    last_checkin TEXT,
+    last_checkin DATE,
     freezes_available INTEGER DEFAULT 0,
-    last_freeze_date TEXT,
-    checkout_date TEXT,
-    session_start TEXT,
+    last_freeze_date DATE,
+    checkout_date DATE,
+    session_start TIMESTAMPTZ,
     current_priority TEXT,
     month_minutes INTEGER DEFAULT 0,
     year_minutes INTEGER DEFAULT 0,
@@ -41,20 +41,63 @@ db.query(`
 `)
   .then(() => {
     console.log("✅ Base de données PostgreSQL prête (Table 'users' vérifiée)");
-    // S'assurer que les nouvelles colonnes existent si la table a été créée avant la fonctionnalité de Freeze
+    // S'assurer que les nouvelles colonnes existent avec le BON type
+    // On tente une conversion, et si ça échoue (format texte incompatible), on recrée proprement.
     return db.query(`
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS freezes_available INTEGER DEFAULT 0;
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_freeze_date TEXT;
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS checkin_date TEXT;
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS checkout_date TEXT;
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS session_start TEXT;
+      -- Conversion ou création de freezes_available
+      DO $$ BEGIN
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS freezes_available INTEGER DEFAULT 0;
+      EXCEPTION WHEN others THEN NULL; END $$;
+
+      -- Pour les dates, on tente de convertir. Si échec, on DROP et ADD (Reset autorisé par l'user)
+      DO $$ BEGIN
+        ALTER TABLE users ALTER COLUMN last_freeze_date TYPE DATE USING last_freeze_date::DATE;
+      EXCEPTION WHEN others THEN 
+        ALTER TABLE users DROP COLUMN IF EXISTS last_freeze_date;
+        ALTER TABLE users ADD COLUMN last_freeze_date DATE;
+      END $$;
+
+      DO $$ BEGIN
+        ALTER TABLE users ALTER COLUMN checkin_date TYPE DATE USING checkin_date::DATE;
+      EXCEPTION WHEN others THEN 
+        ALTER TABLE users DROP COLUMN IF EXISTS checkin_date;
+        ALTER TABLE users ADD COLUMN checkin_date DATE;
+      END $$;
+
+      DO $$ BEGIN
+        ALTER TABLE users ALTER COLUMN checkout_date TYPE DATE USING checkout_date::DATE;
+      EXCEPTION WHEN others THEN 
+        ALTER TABLE users DROP COLUMN IF EXISTS checkout_date;
+        ALTER TABLE users ADD COLUMN checkout_date DATE;
+      END $$;
+
+      DO $$ BEGIN
+        ALTER TABLE users ALTER COLUMN session_start TYPE TIMESTAMPTZ USING session_start::TIMESTAMPTZ;
+      EXCEPTION WHEN others THEN 
+        ALTER TABLE users DROP COLUMN IF EXISTS session_start;
+        ALTER TABLE users ADD COLUMN session_start TIMESTAMPTZ;
+      END $$;
+
+      -- Autres colonnes
       ALTER TABLE users ADD COLUMN IF NOT EXISTS current_priority TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS month_minutes INTEGER DEFAULT 0;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS year_minutes INTEGER DEFAULT 0;
+      
+      DO $$ BEGIN
+        ALTER TABLE users ALTER COLUMN secret_id TYPE TEXT;
+      EXCEPTION WHEN others THEN NULL; END $$;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS secret_id TEXT UNIQUE;
+
       ALTER TABLE users ADD COLUMN IF NOT EXISTS motivations TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS commitment_signed BOOLEAN DEFAULT FALSE;
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS signed_at TEXT;
+      
+      DO $$ BEGIN
+        ALTER TABLE users ALTER COLUMN signed_at TYPE TIMESTAMPTZ USING signed_at::TIMESTAMPTZ;
+      EXCEPTION WHEN others THEN
+        ALTER TABLE users DROP COLUMN IF EXISTS signed_at;
+        ALTER TABLE users ADD COLUMN signed_at TIMESTAMPTZ;
+      END $$;
+
       ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_days_at_zero INTEGER DEFAULT 0;
     `);
   })

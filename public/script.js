@@ -92,7 +92,6 @@ async function fetchStats() {
 
     } catch (error) {
         console.error('Erreur lors de la récupération des stats:', error);
-        document.getElementById('leaderboard-body').innerHTML = '<div class="loading">Erreur de connexion.</div>';
     }
 }
 

@@ -8,7 +8,7 @@ const commands = [
     .setDescription('Obtenir le lien de ton tableau de bord personnel'),
   new SlashCommandBuilder()
     .setName('checkin')
-    .setDescription('Valider ta présence le matin (00h00 - 08h59)'),
+    .setDescription('Valider ta présence le matin (00h00 - 10h00)'),
   new SlashCommandBuilder()
     .setName('start')
     .setDescription('Démarrer une session de Travail silencieux'),

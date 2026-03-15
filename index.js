@@ -45,6 +45,7 @@ const ROLE_THRESHOLDS = [
 const ROLE_PAID = process.env.DISCORD_PAID_ROLE_ID;
 const ROLE_VERIFIED = process.env.DISCORD_VERIFIED_ROLE_ID;
 const GUILD_ID = process.env.DISCORD_GUILD_ID;
+const ADMIN_ID = process.env.ADMIN_ID; // Ton ID Discord pour recevoir les alertes d'exclusion
 
 // IDs des salons pour les logs silencieux
 const CHAN_INTENTIONS = "1482418496586387666";
@@ -66,6 +67,48 @@ async function sendSilentMessage(channelId, content) {
   }
 }
 
+// Fonction utilitaire pour synchroniser les rôles d'un membre de manière optimisée
+async function synchronizeMemberRoles(member, streak) {
+  if (!member) return;
+  try {
+    const rolesToKeep = [];
+    
+    // 1. Déterminer le rôle de base selon le streak
+    const targetStreakRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
+    if (targetStreakRole) rolesToKeep.push(targetStreakRole.id);
+
+    // 2. Vérifier le rôle Verified (Lockin)
+    if (ROLE_VERIFIED) rolesToKeep.push(ROLE_VERIFIED);
+
+    // 3. Identifier les rôles à ajouter (ceux qu'il doit avoir mais n'a pas)
+    const rolesToAdd = rolesToKeep.filter(id => !member.roles.cache.has(id));
+    
+    // 4. Identifier les rôles à retirer (tous les rôles de streak qu'il ne doit plus avoir + ROLE_PAID s'il est Verified)
+    const allStreakRoleIds = ROLE_THRESHOLDS.map(r => r.id);
+    const rolesToRemove = member.roles.cache
+      .filter(role => {
+        // Retirer les anciens rôles de streak
+        if (allStreakRoleIds.includes(role.id) && !rolesToKeep.includes(role.id)) return true;
+        // Retirer le rôle Paid s'il est maintenant Verified
+        if (role.id === ROLE_PAID && rolesToKeep.includes(ROLE_VERIFIED)) return true;
+        return false;
+      })
+      .map(role => role.id);
+
+    // 5. Appliquer les changements (seulement si nécessaire)
+    if (rolesToAdd.length > 0) {
+      await member.roles.add(rolesToAdd);
+      console.log(`[Roles] Ajout de ${rolesToAdd.length} rôle(s) à ${member.user.tag}`);
+    }
+    if (rolesToRemove.length > 0) {
+      await member.roles.remove(rolesToRemove);
+      console.log(`[Roles] Retrait de ${rolesToRemove.length} rôle(s) à ${member.user.tag}`);
+    }
+  } catch (err) {
+    console.error(`Erreur lors de la synchronisation des rôles pour ${member.user.tag}:`, err.message);
+  }
+}
+
 // ============================================================
 // CRÉATION DU BOT
 // ============================================================
@@ -83,8 +126,30 @@ const client = new Client({
 // ÉVÉNEMENT : BOT CONNECTÉ
 // ============================================================
 
-client.on("ready", () => {
+client.on("ready", async () => {
   console.log(`Bot connecté à Discord en tant que ${client.user.tag}`);
+
+  // Vérification de sécurité au démarrage : Hiérarchie des rôles
+  try {
+    const guild = await client.guilds.fetch(GUILD_ID).catch(() => null);
+    if (guild) {
+      const botMember = await guild.members.fetch(client.user.id);
+      const topRole = botMember.roles.highest;
+      console.log(`[Startup] Rôle le plus haut du bot : ${topRole.name} (Position: ${topRole.position})`);
+      
+      // Trouver le rôle de streak le plus haut pour comparer
+      const highestStreakRole = ROLE_THRESHOLDS[0];
+      const targetRole = guild.roles.cache.get(highestStreakRole.id);
+      
+      if (targetRole && topRole.position <= targetRole.position) {
+        console.warn(`⚠️ ALERTE PERMISSIONS : Le rôle du bot (${topRole.name}) est INFÉRIEUR ou ÉGAL au rôle ${targetRole.name}. Le bot ne pourra pas gérer les grades de streak. Merci de déplacer le rôle du bot en haut de la liste dans les paramètres du serveur.`);
+      } else {
+        console.log("✅ Permissions de hiérarchie des rôles validées.");
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ Impossible de vérifier la hiérarchie des rôles au démarrage :", err.message);
+  }
 });
 
 
@@ -297,13 +362,16 @@ client.on("interactionCreate", async (interaction) => {
         return await interaction.reply({ content: "❌ Utilisateur introuvable.", ephemeral: true });
       }
 
-      if (user.checkout_date === isoDate) {
+      // Conversion des dates Postgres en format YYYY-MM-DD pour comparaison simple
+      const userCheckoutDate = user.checkout_date ? new Date(user.checkout_date).toISOString().split('T')[0] : null;
+
+      if (userCheckoutDate === isoDate) {
         return await interaction.reply({ content: `✅ Tu as déjà fait ton check-out aujourd'hui ! Streak actuel : 🔥 ${user.current_streak} jours`, ephemeral: true });
       }
 
       // VÉRIFICATION DES CONDITIONS DE STREAK (Pré-calcul)
-      const hasCheckedIn = user.checkin_date === isoDate;
-      const hasWorked = user.today_minutes > 0;
+      const hasCheckedIn = user.checkin_date ? new Date(user.checkin_date).toISOString().split('T')[0] === isoDate : false;
+      const hasWorked = (user.today_minutes || 0) > 0;
 
       let streak = user.current_streak || 0;
       let streakMessage = "";
@@ -316,8 +384,10 @@ client.on("interactionCreate", async (interaction) => {
         const yesterdayDate = new Date();
         yesterdayDate.setDate(yesterdayDate.getDate() - 1);
         const yesterday = formatInTimeZone(yesterdayDate, TIMEZONE, "yyyy-MM-dd");
+        
+        const lastCheckoutDate = user.checkout_date ? new Date(user.checkout_date).toISOString().split('T')[0] : null;
 
-        if (user.checkout_date === yesterday || streak === 0) {
+        if (lastCheckoutDate === yesterday || streak === 0) {
           streak += 1;
         } else {
           streak = 1; // Reprise à 1 s'il y a un trou (bien que géré par les Freezes avant)
@@ -337,36 +407,18 @@ client.on("interactionCreate", async (interaction) => {
         WHERE user_id = $3
       `, [isoDate, streak, userId]);
 
-      // Processus de Rôles
-      try {
-        if (interaction.member && streak > 0 && hasCheckedIn && hasWorked) {
-          const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
-          if (targetRole) {
-            const hasRole = interaction.member.roles.cache.has(targetRole.id);
-            if (!hasRole) await interaction.member.roles.add(targetRole.id);
-
-            // Sécurité : S'assurer qu'il a toujours le rôle d'accès général
-            if (ROLE_VERIFIED && !interaction.member.roles.cache.has(ROLE_VERIFIED)) {
-              await interaction.member.roles.add(ROLE_VERIFIED);
-            }
-
-            for (const r of ROLE_THRESHOLDS) {
-              if (r.id !== targetRole.id && interaction.member.roles.cache.has(r.id)) {
-                await interaction.member.roles.remove(r.id);
-              }
-            }
-          }
-        }
-      } catch (roleErr) {
-        console.error("Erreur rôles (!checkout):", roleErr);
+      // Processus de Rôles (Optimisé)
+      if (interaction.member && streak > 0 && hasCheckedIn && hasWorked) {
+        await synchronizeMemberRoles(interaction.member, streak);
       }
 
       // Envoi du Rapport Quotidien en Message Privé
       try {
-        const hours = (user.total_minutes / 60).toFixed(1);
+        const totalMinutes = user.total_minutes || 0;
+        const hours = (totalMinutes / 60).toFixed(1);
         const days = (hours / 24).toFixed(2);
         await interaction.user.send(
-          `📊 Daily Travail silencieux Report\n\nAujourd'hui : ${user.today_minutes || 0} minutes\nCette semaine : ${user.week_minutes || 0} minutes\n\nTotal :\n${user.total_minutes || 0} minutes\n${hours} heures\n${days} jours`
+          `📊 Daily Travail silencieux Report\n\nAujourd'hui : ${user.today_minutes || 0} minutes\nCette semaine : ${user.week_minutes || 0} minutes\n\nTotal :\n${totalMinutes} minutes\n${hours} heures\n${days} jours`
         );
       } catch (dmErr) {
         console.error("Impossible d'envoyer le rapport quotidien (DM peut-être fermé) :", dmErr);
@@ -516,21 +568,13 @@ client.on("interactionCreate", async (interaction) => {
 
         console.log(`✅ Contrat signé en base pour ${interaction.user.tag}`);
 
-        // 2. Ensuite on tente de gérer les rôles (Optionnel si admin/permissions)
+        // 2. Ensuite on tente de gérer les rôles (Optimisé)
         try {
-          const guild = await client.guilds.fetch(GUILD_ID);
+          const guild = interaction.guild || await client.guilds.fetch(GUILD_ID);
           const member = await guild.members.fetch(userId);
-
-          if (ROLE_VERIFIED) {
-            await member.roles.add(ROLE_VERIFIED);
-          }
-          if (ROLE_PAID && member.roles.cache.has(ROLE_PAID)) {
-            await member.roles.remove(ROLE_PAID);
-          }
-          console.log(`✅ Rôles mis à jour pour ${interaction.user.tag}`);
+          await synchronizeMemberRoles(member, 0); // O jours car signature, mais Verified sera ajouté
         } catch (roleErr) {
-          console.warn(`⚠️ Impossible de modifier les rôles de ${interaction.user.tag} (Probablement Admin ou permissions insuffisantes) :`, roleErr.message);
-          // On ne bloque pas la réponse à l'utilisateur ici
+          console.warn(`⚠️ Impossible de modifier les rôles de ${interaction.user.tag} :`, roleErr.message);
         }
 
         await interaction.reply({
@@ -638,36 +682,10 @@ client.on("interactionCreate", async (interaction) => {
           const member = await guild.members.fetch(row.user_id).catch(() => null);
           if (!member) continue;
 
-          // 1. Gérer le rôle de base (Lockin/Verified)
-          if (ROLE_VERIFIED) {
-            if (!member.roles.cache.has(ROLE_VERIFIED)) {
-              await member.roles.add(ROLE_VERIFIED);
-              count++;
-            }
-          }
-
-          // 2. Gérer la hiérarchie de consistance
-          const streak = row.current_streak;
-          const targetRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
-
-          if (targetRole) {
-            const hasTarget = member.roles.cache.has(targetRole.id);
-            if (!hasTarget) {
-              try {
-                await member.roles.add(targetRole.id);
-                rolesCount++;
-              } catch (e) {
-                errors.push(`Identité: ${member.user.tag} | Streak: ${streak}j | Grade: ${targetRole.name} | Erreur: ${e.message}`);
-              }
-            }
-
-            // Nettoyage des anciens rôles
-            for (const r of ROLE_THRESHOLDS) {
-              if (r.id !== targetRole.id && member.roles.cache.has(r.id)) {
-                await member.roles.remove(r.id).catch(() => { });
-              }
-            }
-          }
+          // 1. & 2. Gérer rôles de base et hiérarchie (Optimisé)
+          await synchronizeMemberRoles(member, row.current_streak);
+          count++;
+          rolesCount++;
         } catch (mErr) {
           errors.push(`Système: Erreur pour ID ${row.user_id} : ${mErr.message}`);
         }
@@ -990,11 +1008,11 @@ cron.schedule("59 23 * * *", async () => {
             // Premier jour d'échec sans freeze : Perte du streak
             await db.query(`UPDATE users SET current_streak = 0, failed_days_at_zero = 1 WHERE user_id = $1`, [user.user_id]);
 
-            // Retrait des rôles
+            // Retrait des rôles (Optimisé)
             const guild = client.guilds.cache.get(GUILD_ID) || client.guilds.cache.first();
             const member = await guild?.members.fetch(user.user_id).catch(() => null);
             if (member) {
-              for (const r of ROLE_THRESHOLDS) { if (member.roles.cache.has(r.id)) await member.roles.remove(r.id); }
+              await synchronizeMemberRoles(member, 0); // Streak à 0 retire tous les grades de consistance
             }
 
             const u = await client.users.fetch(user.user_id);
@@ -1022,6 +1040,16 @@ cron.schedule("59 23 * * *", async () => {
             const u = await client.users.fetch(user.user_id);
             await u.send(`🚫 **EXCLUSION TEMPORAIRE** 🚫\n\nTu n'as pas manifesté d'activité depuis 2 jours consécutifs. La discipline est la clé de la réussite.\n\nTon accès aux salons a été suspendu. Pour revenir, tu dois signer de nouveau ton **Contrat d'Engagement** dans le salon dédié.`);
             console.log(`🚫 Utilisateur ${user.user_id} exclu pour inactivité.`);
+            
+            // Alerte à l'Administrateur (Toi)
+            if (ADMIN_ID) {
+              try {
+                const admin = await client.users.fetch(ADMIN_ID);
+                await admin.send(`🚫 **Alerte Exclusion** : l'utilisateur **${u.tag}** (<@${user.user_id}>) a été suspendu pour inactivité (2 jours sans validation).`);
+              } catch (adminErr) {
+                console.error("Impossible d'envoyer le DM d'exclusion à l'admin:", adminErr.message);
+              }
+            }
           }
           else {
             // Incrémenter simplement les jours d'échec (si déjà à 0 streak)
