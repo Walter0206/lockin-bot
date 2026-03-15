@@ -400,9 +400,9 @@ client.on("interactionCreate", async (interaction) => {
       // 1ère Sauvegarde (Le Streak est sécurisé)
       await db.query(`
         UPDATE users 
-        SET checkout_date = $1,
+        SET checkout_date = $1::DATE,
             current_streak = $2,
-            last_checkin = $1,
+            checkin_date = $1::DATE,
             failed_days_at_zero = 0
         WHERE user_id = $3
       `, [isoDate, streak, userId]);
@@ -1049,8 +1049,8 @@ cron.schedule("59 23 * * *", async () => {
         try {
           await db.query(`
             UPDATE users 
-            SET checkout_date = $1,
-                last_checkin = $1,
+            SET checkout_date = $1::DATE,
+                checkin_date = $1::DATE,
                 failed_days_at_zero = 0
             WHERE user_id = $2
           `, [today, user.user_id]);
@@ -1066,9 +1066,9 @@ cron.schedule("59 23 * * *", async () => {
           await db.query(`
             UPDATE users 
             SET freezes_available = freezes_available - 1,
-                checkout_date = $1,
-                last_checkin = $1,
-                last_freeze_date = $1,
+                checkout_date = $1::DATE,
+                checkin_date = $1::DATE,
+                last_freeze_date = $1::DATE,
                 failed_days_at_zero = 0
             WHERE user_id = $2
           `, [today, user.user_id]);
