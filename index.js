@@ -801,6 +801,85 @@ client.on("interactionCreate", async (interaction) => {
     await interaction.reply({ embeds: [embed] });
   }
 
+  // -------------------------
+  // COMMANDES ADMINISTRATION (Support & Backup)
+  // -------------------------
+  if (interaction.commandName && interaction.commandName.startsWith("admin-")) {
+    // SÉCURITÉ : Vérifier que c'est bien l'admin (VIA ID PERSO)
+    if (interaction.user.id !== ADMIN_ID) {
+      return await interaction.reply({ content: "❌ Accès refusé. Cette commande est réservée à l'administrateur spécifié.", ephemeral: true });
+    }
+
+    // --- INFO UTILISATEUR ---
+    if (interaction.commandName === "admin-user-info") {
+      const targetUser = interaction.options.getUser("utilisateur");
+      const { rows } = await db.query(`SELECT * FROM users WHERE user_id = $1`, [targetUser.id]);
+      
+      if (rows.length === 0) return await interaction.reply({ content: "❌ Utilisateur introuvable en base de données.", ephemeral: true });
+
+      const data = rows[0];
+      let msg = `🛡️ **Données Support pour ${targetUser.tag}** :\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+      await interaction.reply({ content: msg, ephemeral: true });
+    }
+
+    // --- MODIFICATION UTILISATEUR ---
+    if (interaction.commandName === "admin-user-edit") {
+      const targetUser = interaction.options.getUser("utilisateur");
+      const newStreak = interaction.options.getInteger("streak");
+      const newFreezes = interaction.options.getInteger("freezes");
+
+      const updates = [];
+      const values = [];
+      let idx = 1;
+
+      if (newStreak !== null) {
+        updates.push(`current_streak = $${idx++}`);
+        values.push(newStreak);
+      }
+      if (newFreezes !== null) {
+        updates.push(`freezes_available = $${idx++}`);
+        values.push(newFreezes);
+      }
+
+      if (updates.length === 0) return await interaction.reply({ content: "❓ Rien à modifier. Utilise les options `streak` ou `freezes`.", ephemeral: true });
+
+      values.push(targetUser.id);
+      await db.query(`UPDATE users SET ${updates.join(", ")} WHERE user_id = $${idx}`, values);
+
+      // Synchronisation immédiate des rôles si le streak a changé
+      if (newStreak !== null) {
+        const guild = interaction.guild || await client.guilds.fetch(GUILD_ID);
+        const member = await guild.members.fetch(targetUser.id).catch(() => null);
+        if (member) await synchronizeMemberRoles(member, newStreak);
+      }
+
+      await interaction.reply({ content: `✅ Données mises à jour pour **${targetUser.tag}**.`, ephemeral: true });
+    }
+
+    // --- EXPORT DATABASE ---
+    if (interaction.commandName === "admin-database-export") {
+      try {
+        const { rows } = await db.query(`SELECT * FROM users`);
+        const backupPath = path.join(__dirname, `backup_lockin_${new Date().toISOString().split('T')[0]}.json`);
+        const fs = require('fs');
+        fs.writeFileSync(backupPath, JSON.stringify(rows, null, 2));
+
+        await interaction.user.send({
+          content: "📂 **Backup de la base de données** généré avec succès.",
+          files: [backupPath]
+        });
+
+        // Supprimer le fichier temporaire après envoi
+        fs.unlinkSync(backupPath);
+
+        await interaction.reply({ content: "✅ Backup envoyé dans tes messages privés !", ephemeral: true });
+      } catch (err) {
+        console.error("Erreur Export Admin:", err);
+        await interaction.reply({ content: "❌ Erreur lors de l'export : " + err.message, ephemeral: true });
+      }
+    }
+  }
+
 });
 
 

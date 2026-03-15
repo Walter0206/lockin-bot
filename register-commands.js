@@ -43,6 +43,19 @@ const commands = [
   new SlashCommandBuilder()
     .setName('setup-hierarchy')
     .setDescription('Installer le message de présentation de la hiérarchie (Admin uniquement)'),
+  new SlashCommandBuilder()
+    .setName('admin-user-edit')
+    .setDescription('🛡️ [ADMIN] Modifier les données d\'un membre')
+    .addUserOption(option => option.setName('utilisateur').setDescription('Le membre à modifier').setRequired(true))
+    .addIntegerOption(option => option.setName('streak').setDescription('Nouveau streak (jours)'))
+    .addIntegerOption(option => option.setName('freezes').setDescription('Nouveau nombre de freezes disponibles')),
+  new SlashCommandBuilder()
+    .setName('admin-user-info')
+    .setDescription('🛡️ [ADMIN] Voir toutes les données d\'un membre')
+    .addUserOption(option => option.setName('utilisateur').setDescription('Le membre à inspecter').setRequired(true)),
+  new SlashCommandBuilder()
+    .setName('admin-database-export')
+    .setDescription('🛡️ [ADMIN] Exporter la base de données (Backup JSON)'),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
