@@ -362,15 +362,15 @@ client.on("interactionCreate", async (interaction) => {
         return await interaction.reply({ content: "❌ Utilisateur introuvable.", ephemeral: true });
       }
 
-      // Conversion des dates Postgres en format YYYY-MM-DD pour comparaison simple
-      const userCheckoutDate = user.checkout_date ? new Date(user.checkout_date).toISOString().split('T')[0] : null;
+      // Conversion des dates Postgres en format YYYY-MM-DD pour comparaison simple (Timezone safe)
+      const userCheckoutDate = user.checkout_date ? formatInTimeZone(new Date(user.checkout_date), TIMEZONE, "yyyy-MM-dd") : null;
 
       if (userCheckoutDate === isoDate) {
         return await interaction.reply({ content: `✅ Tu as déjà fait ton check-out aujourd'hui ! Streak actuel : 🔥 ${user.current_streak} jours`, ephemeral: true });
       }
 
       // VÉRIFICATION DES CONDITIONS DE STREAK (Pré-calcul)
-      const hasCheckedIn = user.checkin_date ? new Date(user.checkin_date).toISOString().split('T')[0] === isoDate : false;
+      const hasCheckedIn = user.checkin_date ? formatInTimeZone(new Date(user.checkin_date), TIMEZONE, "yyyy-MM-dd") === isoDate : false;
       const hasWorked = (user.today_minutes || 0) > 0;
 
       let streak = user.current_streak || 0;
@@ -939,19 +939,22 @@ cron.schedule("* * * * *", async () => {
 
 
 // ============================================================
-// TÂCHE AUTOMATIQUE : STREAK FREEZE À 23H59
+// TÂCHE AUTOMATIQUE : STREAK FREEZE À 04H00 (Plus flexible pour les couche-tard)
 // ============================================================
 
-cron.schedule("59 23 * * *", async () => {
-  const today = new Date().toISOString().split("T")[0];
+cron.schedule("0 4 * * *", async () => {
+  const { isoDate } = getParisDateInfo(); // La date de "hier" car on est le lendemain matin
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayIso = formatInTimeZone(yesterday, TIMEZONE, "yyyy-MM-dd");
 
   try {
-    // On cherche tous les utilisateurs actifs/engagés qui n'ont pas validé aujourd'hui
+    // On cherche tous les utilisateurs actifs qui n'ont pas validé HIER
     const { rows } = await db.query(`
       SELECT * FROM users 
       WHERE commitment_signed = TRUE 
       AND (checkout_date IS NULL OR checkout_date != $1)
-    `, [today]);
+    `, [yesterdayIso]);
 
     for (const user of rows) {
       // --- LOGIQUE DU BOUCLIER DE GRÂCE (3 JOURS) ---
