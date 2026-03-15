@@ -939,22 +939,19 @@ cron.schedule("* * * * *", async () => {
 
 
 // ============================================================
-// TÂCHE AUTOMATIQUE : STREAK FREEZE À 04H00 (Plus flexible pour les couche-tard)
+// TÂCHE AUTOMATIQUE : STREAK FREEZE À 23H59
 // ============================================================
 
-cron.schedule("0 4 * * *", async () => {
-  const { isoDate } = getParisDateInfo(); // La date de "hier" car on est le lendemain matin
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayIso = formatInTimeZone(yesterday, TIMEZONE, "yyyy-MM-dd");
+cron.schedule("59 23 * * *", async () => {
+  const today = new Date().toISOString().split("T")[0];
 
   try {
-    // On cherche tous les utilisateurs actifs qui n'ont pas validé HIER
+    // On cherche tous les utilisateurs actifs/engagés qui n'ont pas validé aujourd'hui
     const { rows } = await db.query(`
       SELECT * FROM users 
       WHERE commitment_signed = TRUE 
       AND (checkout_date IS NULL OR checkout_date != $1)
-    `, [yesterdayIso]);
+    `, [today]);
 
     for (const user of rows) {
       // --- LOGIQUE DU BOUCLIER DE GRÂCE (3 JOURS) ---
