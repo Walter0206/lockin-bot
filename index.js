@@ -947,7 +947,7 @@ client.on("interactionCreate", async (interaction) => {
         for (const [id, member] of members) {
           const rolesToRemove = member.roles.cache.filter(r => allManagedRoles.includes(r.id));
           if (rolesToRemove.size > 0) {
-            await member.roles.remove(rolesToRemove.id).catch(e => console.warn(`Impossible de retirer les rôles à ${member.user.tag}:`, e.message));
+            await member.roles.remove(rolesToRemove).catch(e => console.warn(`Impossible de retirer les rôles à ${member.user.tag}:`, e.message));
             count++;
           }
         }
