@@ -56,6 +56,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName('admin-database-export')
     .setDescription('🛡️ [ADMIN] Exporter la base de données (Backup JSON)'),
+  new SlashCommandBuilder()
+    .setName('admin-reset-all')
+    .setDescription('🛡️ [ADMIN] RESET GLOBAL : Remise à zéro de tous les membres (Lancement)'),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);

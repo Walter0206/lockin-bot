@@ -1215,9 +1215,35 @@ app.post(
 
     const GUILD_ID = process.env.DISCORD_GUILD_ID;
 
+      // ----- TENTATIVE : Notifier l'administrateur -----
+    if (event.type === "checkout.session.created") {
+      const session = event.data.object;
+      if (ADMIN_ID) {
+        try {
+          const admin = await client.users.fetch(ADMIN_ID);
+          const customerEmail = session.customer_details?.email || session.customer_email || "Inconnu";
+          await admin.send(`💳 **Nouvelle Tentative de Paiement** : Un utilisateur (${customerEmail}) a ouvert une session Stripe.`);
+        } catch (err) {
+          console.error("Erreur notification tentative à l'admin:", err.message);
+        }
+      }
+    }
+
     // ----- PAIEMENT VALIDÉ : Attribuer le rôle Discord -----
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
+
+      // Notification Admin (Succès)
+      if (ADMIN_ID) {
+        try {
+          const admin = await client.users.fetch(ADMIN_ID);
+          const amount = (session.amount_total / 100).toFixed(2);
+          const currency = session.currency.toUpperCase();
+          await admin.send(`💰 **Paiement Réussi !**\n\nUn montant de **${amount} ${currency}** a été reçu.\nSession ID: \`${session.id}\``);
+        } catch (err) {
+          console.error("Erreur notification succès à l'admin:", err.message);
+        }
+      }
 
       let discordUserId = session.metadata?.discord_user_id;
 
