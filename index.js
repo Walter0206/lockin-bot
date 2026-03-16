@@ -939,12 +939,24 @@ client.on("interactionCreate", async (interaction) => {
 
         // 2. Reset Discord Roles for everybody in the guild
         const guild = interaction.guild || await client.guilds.fetch(GUILD_ID);
-        const members = await guild.members.fetch();
         
-        let count = 0;
-        const allManagedRoles = [ROLE_PAID, ROLE_VERIFIED, ...ROLE_THRESHOLDS.map(r => r.id)];
+        const allManagedRoles = [ROLE_PAID, ROLE_VERIFIED, ...ROLE_THRESHOLDS.map(r => r.id)].filter(id => !!id);
+        const membersToCleanup = new Map();
 
-        for (const [id, member] of members) {
+        // On identifie les membres qui ont au moins un des rôles gérés
+        for (const roleId of allManagedRoles) {
+          const role = await guild.roles.fetch(roleId).catch(() => null);
+          if (role) {
+            for (const [memberId, member] of role.members) {
+              if (!membersToCleanup.has(memberId)) {
+                membersToCleanup.set(memberId, member);
+              }
+            }
+          }
+        }
+
+        let count = 0;
+        for (const [memberId, member] of membersToCleanup) {
           const rolesToRemove = member.roles.cache.filter(r => allManagedRoles.includes(r.id));
           if (rolesToRemove.size > 0) {
             await member.roles.remove(rolesToRemove).catch(e => console.warn(`Impossible de retirer les rôles à ${member.user.tag}:`, e.message));
