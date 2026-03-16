@@ -47,6 +47,8 @@ const ROLE_VERIFIED = process.env.DISCORD_VERIFIED_ROLE_ID;
 const GUILD_ID = process.env.DISCORD_GUILD_ID;
 const ADMIN_ID = process.env.ADMIN_ID; // Ton ID Discord pour recevoir les alertes d'exclusion
 
+console.log(`[Startup] Config Rôles: Paid=${ROLE_PAID}, Verified=${ROLE_VERIFIED}, Guild=${GUILD_ID}`);
+
 // IDs des salons pour les logs silencieux
 const CHAN_INTENTIONS = "1482418496586387666";
 const CHAN_LIVE = "1482418541390205011";
@@ -67,45 +69,55 @@ async function sendSilentMessage(channelId, content) {
   }
 }
 
-// Fonction utilitaire pour synchroniser les rôles d'un membre de manière optimisée
+/**
+ * Synchronise les rôles d'un membre de manière atomique (plus robuste).
+ * @param {GuildMember} member 
+ * @param {number} serie 
+ */
 async function synchronizeMemberRoles(member, serie) {
   if (!member) return;
   try {
-    const rolesToKeep = [];
-
-    // 1. Déterminer le rôle de base selon la série
-    const targetSerieRole = ROLE_THRESHOLDS.find(r => serie >= r.days);
-    if (targetSerieRole) rolesToKeep.push(targetSerieRole.id);
-
-    // 2. Vérifier le rôle Verified (Lockin)
-    if (ROLE_VERIFIED) rolesToKeep.push(ROLE_VERIFIED);
-
-    // 3. Identifier les rôles à ajouter (ceux qu'il doit avoir mais n'a pas)
-    const rolesToAdd = rolesToKeep.filter(id => !member.roles.cache.has(id));
-
-    // 4. Identifier les rôles à retirer (tous les rôles de série qu'il ne doit plus avoir + ROLE_PAID s'il est Verified)
+    // 1. Récupérer les rôles actuels du membre qui NE sont PAS gérés par le bot
+    // (pour les conserver précieusement)
     const allSerieRoleIds = ROLE_THRESHOLDS.map(r => r.id);
-    const rolesToRemove = member.roles.cache
-      .filter(role => {
-        // Retirer les anciens rôles de série
-        if (allSerieRoleIds.includes(role.id) && !rolesToKeep.includes(role.id)) return true;
-        // Retirer le rôle Paid s'il est maintenant Verified
-        if (role.id === ROLE_PAID && rolesToKeep.includes(ROLE_VERIFIED)) return true;
-        return false;
-      })
+    const managedRoleIds = [...allSerieRoleIds, ROLE_PAID, ROLE_VERIFIED];
+    
+    const otherRoles = member.roles.cache
+      .filter(role => !managedRoleIds.includes(role.id))
       .map(role => role.id);
 
-    // 5. Appliquer les changements (seulement si nécessaire)
-    if (rolesToAdd.length > 0) {
-      await member.roles.add(rolesToAdd);
-      console.log(`[Roles] Ajout de ${rolesToAdd.length} rôle(s) à ${member.user.tag}`);
+    // 2. Déterminer quels rôles gérés le membre DOIT avoir
+    const rolesToHave = [];
+
+    // Rôle de série (selon jours)
+    const targetSerieRole = ROLE_THRESHOLDS.find(r => serie >= r.days);
+    if (targetSerieRole) rolesToHave.push(targetSerieRole.id);
+
+    // Rôle Verified (Engagement) - Uniquement si ROLE_VERIFIED est défini
+    if (ROLE_VERIFIED) {
+      // On vérifie en base (ou via l'état actuel) si le membre est censé être Verified
+      const { rows } = await db.query("SELECT commitment_signed FROM users WHERE user_id = $1", [member.id]);
+      if (rows[0]?.commitment_signed) {
+        rolesToHave.push(ROLE_VERIFIED);
+      } else if (ROLE_PAID) {
+        // S'il n'est pas Verified, on lui laisse le rôle Paid (Onboarding)
+        rolesToHave.push(ROLE_PAID);
+      }
     }
-    if (rolesToRemove.length > 0) {
-      await member.roles.remove(rolesToRemove);
-      console.log(`[Roles] Retrait de ${rolesToRemove.length} rôle(s) à ${member.user.tag}`);
+
+    // 3. Fusionner et appliquer (Atomic Set)
+    const finalRoles = [...new Set([...otherRoles, ...rolesToHave])];
+    
+    // Comparaison simple pour éviter l'appel API si rien ne change
+    const currentRoleIds = member.roles.cache.map(r => r.id);
+    const hasChanges = finalRoles.length !== currentRoleIds.length || finalRoles.some(id => !currentRoleIds.includes(id));
+
+    if (hasChanges) {
+      await member.roles.set(finalRoles);
+      console.log(`[Roles] Synchronisation terminée pour ${member.user.tag} (Rôles: ${rolesToHave.length} gérés, ${otherRoles.length} autres)`);
     }
   } catch (err) {
-    console.error(`Erreur lors de la synchronisation des rôles pour ${member.user.tag}:`, err.message);
+    console.error(`❌ Erreur synchronisation rôles pour ${member.user.tag}:`, err.message);
   }
 }
 
@@ -158,8 +170,30 @@ client.on("ready", async () => {
 // ============================================================
 
 client.on("interactionCreate", async (interaction) => {
+  // Ignorer les interactions qui ne viennent pas d'un membre ou d'un serveur (sécurité)
+  if (!interaction.guild) return;
+
   console.log(`[Interaction] Type: ${interaction.type} | User: ${interaction.user.tag} | ID: ${interaction.customId || interaction.commandName}`);
   const userId = interaction.user.id;
+  const channelId = interaction.channelId;
+
+  // --- RESTRICTIONS DE CANAUX (Pour garder le serveur propre) ---
+  const RESTRICTED_COMMANDS = {
+    "checkin": "1482418496586387666", // #intentions
+    "checkout": "1482419158011482132", // #bilans
+    "stop": "1482418541390205011",    // #travail-silencieux
+    "start": "1482418541390205011"    // #travail-silencieux
+  };
+
+  if (interaction.isCommand() && RESTRICTED_COMMANDS[interaction.commandName]) {
+    const targetChannelId = RESTRICTED_COMMANDS[interaction.commandName];
+    if (channelId !== targetChannelId) {
+      return await interaction.reply({
+        content: `❌ Cette commande doit être utilisée dans le salon <#${targetChannelId}> pour ne pas polluer les autres canaux. Merci !`,
+        ephemeral: true
+      });
+    }
+  }
 
 
   // Fonction utilitaire pour récupérer l'heure de Paris
