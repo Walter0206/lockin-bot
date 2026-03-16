@@ -912,6 +912,56 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.reply({ content: "❌ Erreur lors de l'export : " + err.message, ephemeral: true });
       }
     }
+
+    // --- RESET GLOBAL ALL MEMBERS ---
+    if (interaction.commandName === "admin-reset-all") {
+      try {
+        await interaction.deferReply({ ephemeral: true });
+
+        // 1. Reset Database
+        await db.query(`
+          UPDATE users 
+          SET current_serie = 0,
+              total_minutes = 0,
+              today_minutes = 0,
+              week_minutes = 0,
+              month_minutes = 0,
+              year_minutes = 0,
+              gels_disponibles = 2,
+              commitment_signed = FALSE,
+              checkin_date = NULL,
+              checkout_date = NULL,
+              current_priority = NULL,
+              motivations = NULL,
+              signed_at = NULL,
+              session_start = NULL
+        `);
+
+        // 2. Reset Discord Roles for everybody in the guild
+        const guild = interaction.guild || await client.guilds.fetch(GUILD_ID);
+        const members = await guild.members.fetch();
+        
+        let count = 0;
+        const allManagedRoles = [ROLE_PAID, ROLE_VERIFIED, ...ROLE_THRESHOLDS.map(r => r.id)];
+
+        for (const [id, member] of members) {
+          const rolesToRemove = member.roles.cache.filter(r => allManagedRoles.includes(r.id));
+          if (rolesToRemove.size > 0) {
+            await member.roles.remove(rolesToRemove.id).catch(e => console.warn(`Impossible de retirer les rôles à ${member.user.tag}:`, e.message));
+            count++;
+          }
+        }
+
+        await interaction.editReply({ 
+          content: `✅ **Remise à zéro effectuée !**\n\n- Base de données réinitialisée pour tous les utilisateurs.\n- Rôles retirés à **${count}** membres.\n\nLe serveur est prêt pour le lancement officiel ! 🚀` 
+        });
+
+        console.log(`⚠️ RESET GLOBAL effectué par ${interaction.user.tag}`);
+      } catch (err) {
+        console.error("Erreur !admin-reset-all :", err);
+        await interaction.editReply({ content: "❌ Erreur lors du reset : " + err.message });
+      }
+    }
   }
 
 });
