@@ -405,7 +405,7 @@ client.on("interactionCreate", async (interaction) => {
 
       // VÉRIFICATION DES CONDITIONS DE SÉRIE (Pré-calcul)
       const hasCheckedIn = user.checkin_date ? formatInTimeZone(new Date(user.checkin_date), TIMEZONE, "yyyy-MM-dd") === isoDate : false;
-      const hasWorked = (user.today_minutes || 0) > 0;
+      const hasWorked = (user.today_minutes || 0) >= 30;
 
       let serie = user.current_serie || 0;
       let serieMessage = "";
@@ -428,7 +428,7 @@ client.on("interactionCreate", async (interaction) => {
         }
         serieMessage = `✅ Conditions remplies ! Ta série monte à 🔥 **${serie} jours** !`;
       } else {
-        serieMessage = `⚠️ Check-out enregistré, mais tu n'as pas rempli les devoirs du jour (Check-in ce matin ET temps de travail). Ta série stagne à **${serie} jours**.`;
+        serieMessage = `⚠️ Check-out enregistré, mais tu n'as pas rempli les devoirs du jour (Check-in ce matin ET minimum 30 min de travail). Ta série stagne à **${serie} jours**.`;
       }
 
       // 1ère Sauvegarde (La série est sécurisée)

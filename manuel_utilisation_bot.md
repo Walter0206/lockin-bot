@@ -31,7 +31,7 @@ Ta **Série** (nombre de jours consécutifs de travail) est le reflet de ta disc
 ### 🌃 C. Le soir : `/checkout`
 - **Où :** Uniquement dans le salon `#bilans`.
 - **Fenêtre :** 19h00 - 23h59 (Heure de Paris).
-- **Validation :** Si tu as fait ton `/checkin` ET travaillé au moins 1 minute, ta Série monte de +1.
+- **Validation :** Si tu as fait ton `/checkin` ET travaillé au moins 30 minutes, ta Série monte de +1.
 - **Priorité :** Définis ta mission pour demain (via le bouton discret qui ouvre un formulaire).
 
 ---
