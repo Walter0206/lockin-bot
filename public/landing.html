@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Med in silence — La Communauté Travail silencieux pour réussir ton concours</title>
   <meta name="description"
-    content="La seule communauté de Travail silencieux conçue pour les futurs médecins belges. Streaks, sessions live quotidiennes à 20h30, classements. Rejoins les 25 premiers Fondateurs à 9,99€/mois." />
+    content="La seule communauté de Travail silencieux conçue pour les futurs médecins belges. Séries, sessions live quotidiennes à 20h30, classements. Rejoins les 25 premiers Fondateurs à 9,99€/mois." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -434,12 +434,12 @@
       animation: blink 1s infinite;
     }
 
-    /* ===================== STREAK VIZ ===================== */
-    .streak-section {
+    /* ===================== SÉRIE VIZ ===================== */
+    .serie-section {
       background: linear-gradient(180deg, #0a0a28 0%, var(--bg) 100%);
     }
 
-    .streak-demo {
+    .serie-demo {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 24px;
@@ -447,7 +447,7 @@
       margin-top: 56px;
     }
 
-    .streak-header {
+    .serie-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -456,12 +456,12 @@
       gap: 16px;
     }
 
-    .streak-title {
+    .serie-title {
       font-size: 18px;
       font-weight: 700;
     }
 
-    .streak-count {
+    .serie-count {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -493,7 +493,7 @@
       color: #fff;
     }
 
-    .day-freeze {
+    .day-gel {
       background: rgba(79, 142, 255, 0.2);
       color: var(--blue);
       border: 1px solid rgba(79, 142, 255, 0.3);
@@ -511,7 +511,7 @@
       border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    .streak-stats {
+    .serie-stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       gap: 16px;
@@ -1079,8 +1079,8 @@
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-gold">🔥</div>
-          <h3>Système de Streaks</h3>
-          <p>Chaque jour où tu check in, travailles, et check out — ton streak grimpe. Perds-le et tu recommences à
+          <h3>Système de Séries</h3>
+          <p>Chaque jour où tu check in, travailles, et check out — ta série grimpe. Perds-la et tu recommences à
             zéro. Simple. Redoutable.</p>
         </div>
         <div class="feature-card">
@@ -1099,32 +1099,32 @@
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-blue">❄️</div>
-          <h3>Streak Freezes (Jokers)</h3>
-          <p>Tu travailles pour gagner des Freezes. Un jour tu oublies ? Un Freeze sauve ta série automatiquement. Parce
+          <h3>Gels de Série (Jokers)</h3>
+          <p>Tu travailles pour gagner des Gels. Un jour tu oublies ? Un Gel sauve ta série automatiquement. Parce
             qu'on est humains.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon icon-purple">📊</div>
           <h3>Tableau de bord Personnel</h3>
           <p>Un lien secret rien que pour toi avec tes stats complètes — minutes aujourd'hui, cette semaine, au total,
-            ton streak actif, tes freezes.</p>
+            ta série active, tes gels.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- STREAK VIZ SECTION -->
-  <section class="streak-section">
+  <!-- SÉRIE VIZ SECTION -->
+  <section class="serie-section">
     <div class="container">
       <div class="section-label">La Gamification</div>
       <h2>Tes progrès, visibles<br>et mesurables</h2>
       <p class="subtitle">À la fin de chaque journée, ton profil reflète exactement ce tu as accompli. Pas besoin de te
         mentir.</p>
 
-      <div class="streak-demo reveal">
-        <div class="streak-header">
-          <div class="streak-title">🔥 Streak actuel de Mohamed A.</div>
-          <div class="streak-count">27 <span style="font-size:18px; color: var(--muted); font-weight:500;">jours
+      <div class="serie-demo reveal">
+        <div class="serie-header">
+          <div class="serie-title">🔥 Série actuelle de Mohamed A.</div>
+          <div class="serie-count">27 <span style="font-size:18px; color: var(--muted); font-weight:500;">jours
               consécutifs</span></div>
         </div>
         <div class="days-row">
@@ -1140,7 +1140,7 @@
           <div class="day-dot day-done">M</div>
           <div class="day-dot day-done">J</div>
           <div class="day-dot day-done">V</div>
-          <div class="day-dot day-freeze">S</div>
+          <div class="day-dot day-gel">S</div>
           <div class="day-dot day-done">D</div>
           <div class="day-dot day-done">L</div>
           <div class="day-dot day-done">M</div>
@@ -1158,7 +1158,7 @@
           <div class="day-dot day-empty">S</div>
           <div class="day-dot day-empty">D</div>
         </div>
-        <div class="streak-stats">
+        <div class="serie-stats">
           <div class="stat-box">
             <div class="stat-val blue">347</div>
             <div class="stat-label">Minutes aujourd'hui</div>
@@ -1173,7 +1173,7 @@
           </div>
           <div class="stat-box">
             <div class="stat-val" style="color:var(--blue);">3 ❄️</div>
-            <div class="stat-label">Freezes disponibles</div>
+            <div class="stat-label">Gels disponibles</div>
           </div>
         </div>
       </div>
@@ -1234,7 +1234,7 @@
             </div>
             <div class="founder-perk">
               <div class="check">✓</div>
-              <div>Classement et gamification complète (Streaks + Freezes)</div>
+              <div>Classement et gamification complète (Séries + Gels)</div>
             </div>
             <div class="founder-perk">
               <div class="check">✓</div>
@@ -1291,8 +1291,8 @@
             Est-ce que je dois travailler tous les jours sans exception ?
             <span class="faq-arrow">+</span>
           </div>
-          <div class="faq-answer">Non. Le système est conçu pour être humain et réaliste. Tu accumules des "Streak
-            Freezes" (jokers) en travaillant. Si tu oublies un soir, un Freeze est consommé automatiquement pour
+          <div class="faq-answer">Non. Le système est conçu pour être humain et réaliste. Tu accumules des "Gels de Série"
+             (jokers) en travaillant. Si tu oublies un soir, un Gel est consommé automatiquement pour
             sauvegarder ta série. Cela dit, l'objectif reste la régularité maximale.</div>
         </div>
         <div class="faq-item">

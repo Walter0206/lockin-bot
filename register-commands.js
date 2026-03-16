@@ -36,19 +36,19 @@ const commands = [
     .setDescription('Installer le message d\'onboarding avec le bouton d\'engagement (Admin uniquement)'),
   new SlashCommandBuilder()
     .setName('migrer-membres')
-    .setDescription('Donner le rôle Lockin à tous les membres ayant un streak (Migration)'),
+    .setDescription('Donner le rôle Lockin à tous les membres ayant une série (Migration)'),
   new SlashCommandBuilder()
     .setName('classement')
-    .setDescription('Afficher le Top 10 des membres les plus réguliers'),
+    .setDescription('Afficher le Top 50 des membres les plus réguliers'),
   new SlashCommandBuilder()
     .setName('setup-hierarchy')
     .setDescription('Installer le message de présentation de la hiérarchie (Admin uniquement)'),
   new SlashCommandBuilder()
     .setName('admin-user-edit')
     .setDescription('🛡️ [ADMIN] Modifier les données d\'un membre')
-    .addUserOption(option => option.setName('utilisateur').setDescription('Le membre à modifier').setRequired(true))
-    .addIntegerOption(option => option.setName('streak').setDescription('Nouveau streak (jours)'))
-    .addIntegerOption(option => option.setName('freezes').setDescription('Nouveau nombre de freezes disponibles')),
+    .addUserOption(option => option.setName('utilisateur').setDescription('Le member à modifier').setRequired(true))
+    .addIntegerOption(option => option.setName('serie').setDescription('Nouvelle série (jours)'))
+    .addIntegerOption(option => option.setName('gels').setDescription('Nouveau nombre de gels disponibles')),
   new SlashCommandBuilder()
     .setName('admin-user-info')
     .setDescription('🛡️ [ADMIN] Voir toutes les données d\'un membre')

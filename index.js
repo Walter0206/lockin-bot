@@ -18,7 +18,7 @@ const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_
 const TIMEZONE = "Europe/Paris";
 
 // ============================================================
-// CONFIGURATION DES RÔLES DE STREAK
+// CONFIGURATION DES RÔLES DE SÉRIE
 // ============================================================
 
 // Les rôles doivent être classés du plus grand nombre de jours au plus petit !
@@ -57,8 +57,8 @@ async function sendSilentMessage(channelId, content) {
   try {
     const channel = await client.channels.fetch(channelId).catch(() => null);
     if (channel) {
-      await channel.send({ 
-        content: content, 
+      await channel.send({
+        content: content,
         flags: [4096] // MessageFlags.SuppressNotifications
       });
     }
@@ -68,27 +68,27 @@ async function sendSilentMessage(channelId, content) {
 }
 
 // Fonction utilitaire pour synchroniser les rôles d'un membre de manière optimisée
-async function synchronizeMemberRoles(member, streak) {
+async function synchronizeMemberRoles(member, serie) {
   if (!member) return;
   try {
     const rolesToKeep = [];
-    
-    // 1. Déterminer le rôle de base selon le streak
-    const targetStreakRole = ROLE_THRESHOLDS.find(r => streak >= r.days);
-    if (targetStreakRole) rolesToKeep.push(targetStreakRole.id);
+
+    // 1. Déterminer le rôle de base selon la série
+    const targetSerieRole = ROLE_THRESHOLDS.find(r => serie >= r.days);
+    if (targetSerieRole) rolesToKeep.push(targetSerieRole.id);
 
     // 2. Vérifier le rôle Verified (Lockin)
     if (ROLE_VERIFIED) rolesToKeep.push(ROLE_VERIFIED);
 
     // 3. Identifier les rôles à ajouter (ceux qu'il doit avoir mais n'a pas)
     const rolesToAdd = rolesToKeep.filter(id => !member.roles.cache.has(id));
-    
-    // 4. Identifier les rôles à retirer (tous les rôles de streak qu'il ne doit plus avoir + ROLE_PAID s'il est Verified)
-    const allStreakRoleIds = ROLE_THRESHOLDS.map(r => r.id);
+
+    // 4. Identifier les rôles à retirer (tous les rôles de série qu'il ne doit plus avoir + ROLE_PAID s'il est Verified)
+    const allSerieRoleIds = ROLE_THRESHOLDS.map(r => r.id);
     const rolesToRemove = member.roles.cache
       .filter(role => {
-        // Retirer les anciens rôles de streak
-        if (allStreakRoleIds.includes(role.id) && !rolesToKeep.includes(role.id)) return true;
+        // Retirer les anciens rôles de série
+        if (allSerieRoleIds.includes(role.id) && !rolesToKeep.includes(role.id)) return true;
         // Retirer le rôle Paid s'il est maintenant Verified
         if (role.id === ROLE_PAID && rolesToKeep.includes(ROLE_VERIFIED)) return true;
         return false;
@@ -136,13 +136,13 @@ client.on("ready", async () => {
       const botMember = await guild.members.fetch(client.user.id);
       const topRole = botMember.roles.highest;
       console.log(`[Startup] Rôle le plus haut du bot : ${topRole.name} (Position: ${topRole.position})`);
-      
-      // Trouver le rôle de streak le plus haut pour comparer
-      const highestStreakRole = ROLE_THRESHOLDS[0];
-      const targetRole = guild.roles.cache.get(highestStreakRole.id);
-      
+
+      // Trouver le rôle de série le plus haut pour comparer
+      const highestSerieRole = ROLE_THRESHOLDS[0];
+      const targetRole = guild.roles.cache.get(highestSerieRole.id);
+
       if (targetRole && topRole.position <= targetRole.position) {
-        console.warn(`⚠️ ALERTE PERMISSIONS : Le rôle du bot (${topRole.name}) est INFÉRIEUR ou ÉGAL au rôle ${targetRole.name}. Le bot ne pourra pas gérer les grades de streak. Merci de déplacer le rôle du bot en haut de la liste dans les paramètres du serveur.`);
+        console.warn(`⚠️ ALERTE PERMISSIONS : Le rôle du bot (${topRole.name}) est INFÉRIEUR ou ÉGAL au rôle ${targetRole.name}. Le bot ne pourra pas gérer les grades de série. Merci de déplacer le rôle du bot en haut de la liste dans les paramètres du serveur.`);
       } else {
         console.log("✅ Permissions de hiérarchie des rôles validées.");
       }
@@ -265,7 +265,7 @@ client.on("interactionCreate", async (interaction) => {
         [userId, isoNow]
       );
       await interaction.reply({ content: "⏱️ Session de Travail silencieux démarrée ! Reste focus, on lâche rien. Tape `/stop` quand tu as terminé ou que tu fais une pause.", ephemeral: true });
-      
+
       // Log Silencieux
       await sendSilentMessage(CHAN_LIVE, `🚀 **${interaction.user.tag}** vient de se lancer en *Travail silencieux*.`);
 
@@ -307,9 +307,9 @@ client.on("interactionCreate", async (interaction) => {
 
       const oldTotal = rows[0].total_minutes || 0;
       const newTotal = oldTotal + minutes;
-      const oldFreezes = Math.floor(oldTotal / 500);
-      const newFreezes = Math.floor(newTotal / 500);
-      const earned = newFreezes - oldFreezes;
+      const oldGels = Math.floor(oldTotal / 500);
+      const newGels = Math.floor(newTotal / 500);
+      const earned = newGels - oldGels;
 
       await db.query(`
         UPDATE users 
@@ -318,7 +318,7 @@ client.on("interactionCreate", async (interaction) => {
             month_minutes = month_minutes + $1,
             week_minutes = week_minutes + $1,
             today_minutes = today_minutes + $1,
-            freezes_available = freezes_available + $2,
+            gels_disponibles = gels_disponibles + $2,
             session_start = NULL
         WHERE user_id = $3
       `, [minutes, earned, userId]);
@@ -331,7 +331,7 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       if (earned > 0) {
-        rewardMsg += `\n❄️ Bravo ! Tu as franchi un palier et gagné **${earned} Streak Freeze(s)** !`;
+        rewardMsg += `\n❄️ Bravo ! Tu as franchi un palier et gagné **${earned} Gel(s) de série** !`;
       }
       await interaction.reply({ content: rewardMsg, ephemeral: true });
 
@@ -366,50 +366,50 @@ client.on("interactionCreate", async (interaction) => {
       const userCheckoutDate = user.checkout_date ? formatInTimeZone(new Date(user.checkout_date), TIMEZONE, "yyyy-MM-dd") : null;
 
       if (userCheckoutDate === isoDate) {
-        return await interaction.reply({ content: `✅ Tu as déjà fait ton check-out aujourd'hui ! Streak actuel : 🔥 ${user.current_streak} jours`, ephemeral: true });
+        return await interaction.reply({ content: `✅ Tu as déjà fait ton check-out aujourd'hui ! Série actuelle : 🔥 ${user.current_serie} jours`, ephemeral: true });
       }
 
-      // VÉRIFICATION DES CONDITIONS DE STREAK (Pré-calcul)
+      // VÉRIFICATION DES CONDITIONS DE SÉRIE (Pré-calcul)
       const hasCheckedIn = user.checkin_date ? formatInTimeZone(new Date(user.checkin_date), TIMEZONE, "yyyy-MM-dd") === isoDate : false;
       const hasWorked = (user.today_minutes || 0) > 0;
 
-      let streak = user.current_streak || 0;
-      let streakMessage = "";
+      let serie = user.current_serie || 0;
+      let serieMessage = "";
 
       // -------------------------
-      // ÉTAPE 1 : VALIDATION IMMÉDIATE DU STREAK
+      // ÉTAPE 1 : VALIDATION IMMÉDIATE DE LA SÉRIE
       // -------------------------
 
       if (hasCheckedIn && hasWorked) {
         const yesterdayDate = new Date();
         yesterdayDate.setDate(yesterdayDate.getDate() - 1);
         const yesterday = formatInTimeZone(yesterdayDate, TIMEZONE, "yyyy-MM-dd");
-        
+
         const lastCheckoutDate = user.checkout_date ? new Date(user.checkout_date).toISOString().split('T')[0] : null;
 
-        if (lastCheckoutDate === yesterday || streak === 0) {
-          streak += 1;
+        if (lastCheckoutDate === yesterday || serie === 0) {
+          serie += 1;
         } else {
-          streak = 1; // Reprise à 1 s'il y a un trou (bien que géré par les Freezes avant)
+          serie = 1; // Reprise à 1 s'il y a un trou (bien que géré par les Gels avant)
         }
-        streakMessage = `✅ Conditions remplies ! Ton streak monte à 🔥 **${streak} jours** !`;
+        serieMessage = `✅ Conditions remplies ! Ta série monte à 🔥 **${serie} jours** !`;
       } else {
-        streakMessage = `⚠️ Check-out enregistré, mais tu n'as pas rempli les devoirs du jour (Check-in ce matin ET temps de travail). Ton streak stagne à **${streak} jours**.`;
+        serieMessage = `⚠️ Check-out enregistré, mais tu n'as pas rempli les devoirs du jour (Check-in ce matin ET temps de travail). Ta série stagne à **${serie} jours**.`;
       }
 
-      // 1ère Sauvegarde (Le Streak est sécurisé)
+      // 1ère Sauvegarde (La série est sécurisée)
       await db.query(`
         UPDATE users 
         SET checkout_date = $1::DATE,
-            current_streak = $2,
+            current_serie = $2,
             checkin_date = $1::DATE,
             failed_days_at_zero = 0
         WHERE user_id = $3
-      `, [isoDate, streak, userId]);
+      `, [isoDate, serie, userId]);
 
       // Processus de Rôles (Optimisé)
-      if (interaction.member && streak > 0 && hasCheckedIn && hasWorked) {
-        await synchronizeMemberRoles(interaction.member, streak);
+      if (interaction.member && serie > 0 && hasCheckedIn && hasWorked) {
+        await synchronizeMemberRoles(interaction.member, serie);
       }
 
       // Envoi du Rapport Quotidien en Message Privé
@@ -434,7 +434,7 @@ client.on("interactionCreate", async (interaction) => {
           WHERE user_id = $2
         `, [inlinePriority, userId]);
 
-        await interaction.reply({ content: `${streakMessage}\n\nTa priorité "**${inlinePriority}**" est bien enregistrée. Bonne nuit et à demain !`, ephemeral: true });
+        await interaction.reply({ content: `${serieMessage}\n\nTa priorité "**${inlinePriority}**" est bien enregistrée. Bonne nuit et à demain !`, ephemeral: true });
       } else {
         // Mode Discret : Bouton pour ouvrir un Modal
         const row = new ActionRowBuilder()
@@ -446,20 +446,20 @@ client.on("interactionCreate", async (interaction) => {
           );
 
         await interaction.reply({
-          content: `${streakMessage}\n\n🎯 Dernière étape ! Clique sur le bouton ci-dessous pour définir ta priorité pour demain en toute discrétion.`,
+          content: `${serieMessage}\n\n🎯 Dernière étape ! Clique sur le bouton ci-dessous pour définir ta priorité pour demain en toute discrétion.`,
           components: [row],
           ephemeral: true
         });
       }
 
       // --- LOG SILENCIEUX (LE BILAN PUBLIC) ---
-      const gradeInfo = ROLE_THRESHOLDS.find(r => streak >= r.days);
+      const gradeInfo = ROLE_THRESHOLDS.find(r => serie >= r.days);
       const gradeName = gradeInfo ? gradeInfo.name : "Débutant";
       let publicBilan = `🌌 **Bilan de ${interaction.user.tag}**\n`;
-      publicBilan += `🔥 Streak actuel : **${streak} jours** (Grade : *${gradeName}*)\n`;
+      publicBilan += `🔥 Série actuelle : **${serie} jours** (Grade : *${gradeName}*)\n`;
       const finalPriority = inlinePriority || user.current_priority;
       if (finalPriority) publicBilan += `🎯 Demain, sa priorité est : *${finalPriority}*`;
-      
+
       await sendSilentMessage(CHAN_BILANS, publicBilan);
 
     } catch (err) {
@@ -556,12 +556,12 @@ client.on("interactionCreate", async (interaction) => {
         const isoNow = new Date().toISOString();
 
         // 1. D'abord on enregistre en base de données (Le plus important)
-          await db.query(`
+        await db.query(`
             UPDATE users 
             SET motivations = $1,
                 commitment_signed = TRUE,
                 signed_at = $2,
-                freezes_available = 2,
+                gels_disponibles = 2,
                 failed_days_at_zero = 0
             WHERE user_id = $3
           `, [motivations, isoNow, userId]);
@@ -665,7 +665,7 @@ client.on("interactionCreate", async (interaction) => {
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const { rows } = await db.query(`SELECT user_id, current_streak FROM users WHERE current_streak > 0`);
+      const { rows } = await db.query(`SELECT user_id, current_serie FROM users WHERE current_serie > 0`);
 
       let count = 0;
       let rolesCount = 0;
@@ -683,7 +683,7 @@ client.on("interactionCreate", async (interaction) => {
           if (!member) continue;
 
           // 1. & 2. Gérer rôles de base et hiérarchie (Optimisé)
-          await synchronizeMemberRoles(member, row.current_streak);
+          await synchronizeMemberRoles(member, row.current_serie);
           count++;
           rolesCount++;
         } catch (mErr) {
@@ -715,37 +715,37 @@ client.on("interactionCreate", async (interaction) => {
   if (interaction.commandName === "classement") {
     try {
       const { rows } = await db.query(`
-        SELECT user_id, current_streak 
+        SELECT user_id, current_serie 
         FROM users 
-        WHERE current_streak > 0 
-        ORDER BY current_streak DESC 
+        WHERE current_serie > 0 
+        ORDER BY current_serie DESC 
         LIMIT 50
       `);
 
       if (rows.length === 0) {
-        return await interaction.reply({ content: "🏆 Le classement est encore vide. Soyez le premier à valider votre streak !", ephemeral: true });
+        return await interaction.reply({ content: "🏆 Le classement est encore vide. Soyez le premier à valider votre série !", ephemeral: true });
       }
 
       let description = "";
       const medals = ["🥇", "🥈", "🥉"];
 
       for (let i = 0; i < rows.length; i++) {
-        const streak = rows[i].current_streak;
+        const serie = rows[i].current_serie;
 
-        // Trouver le grade correspondant au streak
-        const currentGrade = ROLE_THRESHOLDS.find(r => streak >= r.days);
+        // Trouver le grade correspondant à la série
+        const currentGrade = ROLE_THRESHOLDS.find(r => serie >= r.days);
         const gradeName = currentGrade ? currentGrade.name : "Débutant";
 
         // Emojis spécifiques pour le top 3 ou par palier
         let emojiPrefix = "🔹";
-        if (streak >= 2500) emojiPrefix = "🩺";
-        else if (streak >= 1500) emojiPrefix = "🎓";
-        else if (streak >= 500) emojiPrefix = "⚔️";
-        else if (streak >= 100) emojiPrefix = "🏛️";
-        else if (streak >= 30) emojiPrefix = "🛡️";
+        if (serie >= 2500) emojiPrefix = "🩺";
+        else if (serie >= 1500) emojiPrefix = "🎓";
+        else if (serie >= 500) emojiPrefix = "⚔️";
+        else if (serie >= 100) emojiPrefix = "🏛️";
+        else if (serie >= 30) emojiPrefix = "🛡️";
 
         const medal = medals[i] || emojiPrefix;
-        description += `${medal} **<@${rows[i].user_id}>** : \`${streak}j\` (${gradeName})\n`;
+        description += `${medal} **<@${rows[i].user_id}>** : \`${serie}j\` (${gradeName})\n`;
       }
 
       const embed = {
@@ -778,7 +778,7 @@ client.on("interactionCreate", async (interaction) => {
 
     const embed = {
       title: "🏔️ La Montagne de la Consistance",
-      description: "Voici les grades que tu peux débloquer sur le serveur en maintenant ton streak quotidien. " +
+      description: "Voici les grades que tu peux débloquer sur le serveur en maintenant ta série quotidienne. " +
         "Chaque palier franchi montre ta détermination et ton engagement envers tes objectifs.\n\n" +
         "**📚 Les Paliers Majeurs :**\n" +
         "🩺 **Médecin** (2500 jours) : L'aboutissement de 7 ans de discipline.\n" +
@@ -790,7 +790,7 @@ client.on("interactionCreate", async (interaction) => {
         "**🔄 Le Cycle de la Réussite :**\n" +
         "1️⃣ **Matin (00h-10h)** : `/checkin` pour déclarer tes intentions.\n" +
         "2️⃣ **Journée** : `/start` et `/stop` pour mesurer ton effort.\n" +
-        "3️⃣ **Soir (19h-00h)** : `/checkout` pour valider ta journée et ton streak.\n\n" +
+        "3️⃣ **Soir (19h-00h)** : `/checkout` pour valider ta journée et ta série.\n\n" +
         "*N'oublie pas : La consistance bat l'intensité à chaque fois. Travaille en silence, laisse tes résultats faire du bruit.*",
       color: 0x3498DB, // Blue
       image: {
@@ -814,7 +814,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "admin-user-info") {
       const targetUser = interaction.options.getUser("utilisateur");
       const { rows } = await db.query(`SELECT * FROM users WHERE user_id = $1`, [targetUser.id]);
-      
+
       if (rows.length === 0) return await interaction.reply({ content: "❌ Utilisateur introuvable en base de données.", ephemeral: true });
 
       const data = rows[0];
@@ -825,32 +825,32 @@ client.on("interactionCreate", async (interaction) => {
     // --- MODIFICATION UTILISATEUR ---
     if (interaction.commandName === "admin-user-edit") {
       const targetUser = interaction.options.getUser("utilisateur");
-      const newStreak = interaction.options.getInteger("streak");
-      const newFreezes = interaction.options.getInteger("freezes");
+      const newSerie = interaction.options.getInteger("serie");
+      const newGels = interaction.options.getInteger("gels");
 
       const updates = [];
       const values = [];
       let idx = 1;
 
-      if (newStreak !== null) {
-        updates.push(`current_streak = $${idx++}`);
-        values.push(newStreak);
+      if (newSerie !== null) {
+        updates.push(`current_serie = $${idx++}`);
+        values.push(newSerie);
       }
-      if (newFreezes !== null) {
-        updates.push(`freezes_available = $${idx++}`);
-        values.push(newFreezes);
+      if (newGels !== null) {
+        updates.push(`gels_disponibles = $${idx++}`);
+        values.push(newGels);
       }
 
-      if (updates.length === 0) return await interaction.reply({ content: "❓ Rien à modifier. Utilise les options `streak` ou `freezes`.", ephemeral: true });
+      if (updates.length === 0) return await interaction.reply({ content: "❓ Rien à modifier. Utilise les options `serie` ou `gels`.", ephemeral: true });
 
       values.push(targetUser.id);
       await db.query(`UPDATE users SET ${updates.join(", ")} WHERE user_id = $${idx}`, values);
 
-      // Synchronisation immédiate des rôles si le streak a changé
-      if (newStreak !== null) {
+      // Synchronisation immédiate des rôles si la série a changé
+      if (newSerie !== null) {
         const guild = interaction.guild || await client.guilds.fetch(GUILD_ID);
         const member = await guild.members.fetch(targetUser.id).catch(() => null);
-        if (member) await synchronizeMemberRoles(member, newStreak);
+        if (member) await synchronizeMemberRoles(member, newSerie);
       }
 
       await interaction.reply({ content: `✅ Données mises à jour pour **${targetUser.tag}**.`, ephemeral: true });
@@ -937,8 +937,8 @@ app.get("/api/stats", async (req, res) => {
       if (userRows.length > 0) {
         const user = userRows[0];
         responsePayload.userStats = {
-          streak: user.current_streak,
-          freezes: user.freezes_available,
+          serie: user.current_serie,
+          gels: user.gels_disponibles,
           priority: user.current_priority || "Aucune priorité définie",
           today: user.today_minutes || 0,
           week: user.week_minutes || 0,
@@ -980,9 +980,9 @@ cron.schedule("* * * * *", async () => {
 
         const oldTotal = user.total_minutes || 0;
         const newTotal = oldTotal + rewardMinutes;
-        const oldFreezes = Math.floor(oldTotal / 500);
-        const newFreezes = Math.floor(newTotal / 500);
-        const earned = newFreezes - oldFreezes;
+        const oldGels = Math.floor(oldTotal / 500);
+        const newGels = Math.floor(newTotal / 500);
+        const earned = newGels - oldGels;
 
         await db.query(`
           UPDATE users 
@@ -991,15 +991,15 @@ cron.schedule("* * * * *", async () => {
               month_minutes = month_minutes + $1,
               week_minutes = week_minutes + $1,
               today_minutes = today_minutes + $1,
-              freezes_available = freezes_available + $2,
+              gels_disponibles = gels_disponibles + $2,
               session_start = NULL
           WHERE user_id = $3
         `, [rewardMinutes, earned, user.user_id]);
 
-        let pmMessage = `⚠️ **Arrêt Automatique :** Ta session de Travail silencieux a atteint la limite maximale de 3 heures sans pause. Ta session a été interrompue automatiquement et **180 minutes** ont été créditées à ton profil.\n\nSi tu es toujours en train de travailler, relance un \`!start\` pour démarrer un nouveau bloc. S'il s'agissait d'un oubli de chronomètre, sois honnête et travaille la différence (le surplus que tu aurais théoriquement fait) sans relancer d'autre compteur la prochaine fois. 😉`;
+        let pmMessage = `⚠️ **Arrêt Automatique :** Ta session de Travail silencieux a atteint la limite maximale de 3 heures sans pause. Ta session a été interrompue automatiquement et **180 minutes** ont été créditées à ton profil.\n\nSi tu es toujours en train de travailler, relance un \`/start\` pour démarrer un nouveau bloc. S'il s'agissait d'un oubli de chronomètre, sois honnête et travaille la différence (le surplus que tu aurais théoriquement fait) sans relancer d'autre compteur la prochaine fois. 😉`;
 
         if (earned > 0) {
-          pmMessage += `\n\n❄️ Bonus : Au passage, tu as franchi un palier et gagné **${earned} Streak Freeze(s)** !`;
+          pmMessage += `\n\n❄️ Bonus : Au passage, tu as franchi un palier et gagné **${earned} Gel(s) de série** !`;
         }
 
         try {
@@ -1018,7 +1018,7 @@ cron.schedule("* * * * *", async () => {
 
 
 // ============================================================
-// TÂCHE AUTOMATIQUE : STREAK FREEZE À 23H59
+// TÂCHE AUTOMATIQUE : GELS DE SÉRIE À 23H59
 // ============================================================
 
 cron.schedule("59 23 * * *", async () => {
@@ -1045,7 +1045,7 @@ cron.schedule("59 23 * * *", async () => {
       }
 
       if (isUnderGracePeriod) {
-        // CASE 0: Sous bouclier de grâce -> On sauve le streak sans consommer de freeze
+        // CASE 0: Sous bouclier de grâce -> On sauve la série sans consommer de gel
         try {
           await db.query(`
             UPDATE users 
@@ -1056,50 +1056,50 @@ cron.schedule("59 23 * * *", async () => {
           `, [today, user.user_id]);
 
           const u = await client.users.fetch(user.user_id);
-          await u.send(`🛡️ **BOUCLIER DE GRÂCE ACTIVÉ** 🛡️\n\nTu as oublié de valider ta journée aujourd'hui. Comme tu viens de nous rejoindre (moins de 3 jours), j'ai activé ton bouclier de protection pour sauver ton streak sans utiliser tes freezes. \n\nProfite de cette période pour bien intégrer la routine ! 💪`);
+          await u.send(`🛡️ **BOUCLIER DE GRÂCE ACTIVÉ** 🛡️\n\nTu as oublié de valider ta journée aujourd'hui. Comme tu viens de nous rejoindre (moins de 3 jours), j'ai activé ton bouclier de protection pour sauver ta série sans utiliser tes gels. \n\nProfite de cette période pour bien intégrer la routine ! 💪`);
           console.log(`🛡️ Bouclier de grâce utilisé pour ${user.user_id}`);
         } catch (err) { console.error(`Erreur bouclier grâce pour ${user.user_id}:`, err); }
       }
-      else if (user.freezes_available > 0) {
-        // CASE 1: L'utilisateur a des freezes -> On en utilise un
+      else if (user.gels_disponibles > 0) {
+        // CASE 1: L'utilisateur a des gels -> On en utilise un
         try {
           await db.query(`
             UPDATE users 
-            SET freezes_available = freezes_available - 1,
+            SET gels_disponibles = gels_disponibles - 1,
                 checkout_date = $1::DATE,
                 checkin_date = $1::DATE,
-                last_freeze_date = $1::DATE,
+                date_dernier_gel = $1::DATE,
                 failed_days_at_zero = 0
             WHERE user_id = $2
           `, [today, user.user_id]);
 
           const u = await client.users.fetch(user.user_id);
-          await u.send(`❄️ **STREAK FREEZE AUTOMATIQUE** ❄️\n\nTu as oublié de valider ta journée aujourd'hui, mais j'ai utilisé un de tes freezes pour sauver ton streak de **${user.current_streak} jours**.\n\nIl te reste **${user.freezes_available - 1}** freeze(s).`);
-          console.log(`❄️ Freeze automatique utilisé pour ${user.user_id}`);
-        } catch (err) { console.error(`Erreur freeze auto pour ${user.user_id}:`, err); }
+          await u.send(`❄️ **GEL DE SÉRIE AUTOMATIQUE** ❄️\n\nTu as oublié de valider ta journée aujourd'hui, mais j'ai utilisé un de tes gels pour sauver ta série de **${user.current_serie} jours**..\n\nIl te reste **${user.gels_disponibles - 1}** gel(s).`);
+          console.log(`❄️ Gel automatique utilisé pour ${user.user_id}`);
+        } catch (err) { console.error(`Erreur gel auto pour ${user.user_id}:`, err); }
       }
       else {
-        // CASE 2: Pas de freezes -> Le streak tombe à zéro ou l'inactivité s'accumule
+        // CASE 2: Pas de gels -> La série tombe à zéro ou l'inactivité s'accumule
         try {
           let newFailedDays = (user.failed_days_at_zero || 0) + 1;
 
-          if (user.current_streak > 0) {
-            // Premier jour d'échec sans freeze : Perte du streak
-            await db.query(`UPDATE users SET current_streak = 0, failed_days_at_zero = 1 WHERE user_id = $1`, [user.user_id]);
+          if (user.current_serie > 0) {
+            // Premier jour d'échec sans gel : Perte de la série
+            await db.query(`UPDATE users SET current_serie = 0, failed_days_at_zero = 1 WHERE user_id = $1`, [user.user_id]);
 
             // Retrait des rôles (Optimisé)
             const guild = client.guilds.cache.get(GUILD_ID) || client.guilds.cache.first();
             const member = await guild?.members.fetch(user.user_id).catch(() => null);
             if (member) {
-              await synchronizeMemberRoles(member, 0); // Streak à 0 retire tous les grades de consistance
+              await synchronizeMemberRoles(member, 0); // Série à 0 retire tous les grades de consistance
             }
 
             const u = await client.users.fetch(user.user_id);
-            await u.send(`💔 **STREAK PERDU** 💔\n\nTu n'as pas validé ta journée et tu n'as plus de freeze. Ton streak retombe à 0.\n⚠️ **Attention :** Si tu ne valides pas tes objectifs demain non plus, tu seras exclu(e) de la communauté.`);
-            console.log(`💔 Streak cassé pour ${user.user_id}`);
+            await u.send(`💔 **SÉRIE PERDUE** 💔\n\nTu n'as pas validé ta journée et tu n'as plus de gel disponible. Ta série retombe à 0.\n⚠️ **Attention :** Si tu ne valides pas tes objectifs demain non plus, tu seras exclu(e) de la communauté.`);
+            console.log(`💔 Série cassée pour ${user.user_id}`);
           }
           else if (newFailedDays >= 2) {
-            // Deuxième jour d'échec à zéro streak : EXCLUSION
+            // Deuxième jour d'échec à zéro série : EXCLUSION
             await db.query(`
               UPDATE users 
               SET commitment_signed = FALSE, 
@@ -1119,7 +1119,7 @@ cron.schedule("59 23 * * *", async () => {
             const u = await client.users.fetch(user.user_id);
             await u.send(`🚫 **EXCLUSION TEMPORAIRE** 🚫\n\nTu n'as pas manifesté d'activité depuis 2 jours consécutifs. La discipline est la clé de la réussite.\n\nTon accès aux salons a été suspendu. Pour revenir, tu dois signer de nouveau ton **Contrat d'Engagement** dans le salon dédié.`);
             console.log(`🚫 Utilisateur ${user.user_id} exclu pour inactivité.`);
-            
+
             // Alerte à l'Administrateur (Toi)
             if (ADMIN_ID) {
               try {
@@ -1131,14 +1131,14 @@ cron.schedule("59 23 * * *", async () => {
             }
           }
           else {
-            // Incrémenter simplement les jours d'échec (si déjà à 0 streak)
+            // Incrémenter simplement les jours d'échec (si déjà à 0 série)
             await db.query(`UPDATE users SET failed_days_at_zero = $1 WHERE user_id = $2`, [newFailedDays, user.user_id]);
           }
         } catch (err) { console.error(`Erreur gestion échec pour ${user.user_id}:`, err); }
       }
     }
   } catch (err) {
-    console.error("Erreur globale Auto-Freeze/Exclusion :", err);
+    console.error("Erreur globale Auto-Gel/Exclusion :", err);
   }
 
   // RÉINITIALISATION JOURNALIÈRE POUR TOUT LE MONDE À MINUIT

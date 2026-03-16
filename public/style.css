@@ -395,7 +395,7 @@ h2 {
     font-size: 1rem;
 }
 
-.streak {
+.serie {
     font-size: 0.8rem;
     color: var(--text-secondary);
 }
@@ -406,7 +406,7 @@ h2 {
     /* Gold */
 }
 
-/* Streak & Priorité (Personal Panel) */
+/* Série & Priorité (Personal Panel) */
 .personal-top-stats {
     display: flex;
     justify-content: center;

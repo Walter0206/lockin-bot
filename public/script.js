@@ -29,8 +29,8 @@ async function fetchStats() {
 
         // DOM Elements Personnels
         const personalPanel = document.getElementById('personal-panel');
-        const userStreak = document.getElementById('user-streak');
-        const userFreezes = document.getElementById('user-freezes');
+        const userSerie = document.getElementById('user-serie');
+        const userGels = document.getElementById('user-gels');
         const userPriority = document.getElementById('user-priority');
         const userToday = document.getElementById('user-today');
         const userWeek = document.getElementById('user-week');
@@ -66,8 +66,8 @@ async function fetchStats() {
             personalPanel.classList.remove('hidden');
 
             // Remplir les données
-            userStreak.innerText = data.userStats.streak || 0;
-            userFreezes.innerText = data.userStats.freezes || 0;
+            userSerie.innerText = data.userStats.serie || 0;
+            userGels.innerText = data.userStats.gels || 0;
             userPriority.innerText = data.userStats.priority;
 
             userToday.innerText = formatTime(data.userStats.today);
