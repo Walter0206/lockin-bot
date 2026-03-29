@@ -836,6 +836,42 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   // -------------------------
+  // COMMANDE COMEON (/comeon)
+  // -------------------------
+  if (interaction.commandName === "comeon") {
+    const targetUser = interaction.options.getUser("destinataire");
+
+    if (targetUser.id === interaction.user.id) {
+      return await interaction.reply({ content: "❌ Tu ne peux pas t'envoyer un message d'encouragement à toi-même !", ephemeral: true });
+    }
+
+    if (targetUser.bot) {
+      return await interaction.reply({ content: "❌ Les bots n'ont pas besoin d'encouragement !", ephemeral: true });
+    }
+
+    const messages = [
+      "Come on, tu vas gérer, focus !",
+      "Ne lâche rien, on y croit !",
+      "Tu es sur la bonne voie, continue comme ça !",
+      "La régularité paie toujours, force à toi !",
+      "On lâche rien, tu vas tout exploser !",
+      "Concentre-toi, la victoire est au bout de l'effort !"
+    ];
+
+    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+
+    try {
+      await interaction.channel.send(`🔥 **<@${targetUser.id}>**, tu as reçu un encouragement de la part de **<@${interaction.user.id}>** :\n\n> "${randomMessage}"`);
+      await interaction.reply({ content: `✅ Ton message d'encouragement a bien été envoyé à <@${targetUser.id}> !`, ephemeral: true });
+    } catch (err) {
+      console.error("Erreur /comeon :", err);
+      if (!interaction.replied) {
+        await interaction.reply({ content: "❌ Une erreur est survenue lors de l'envoi de l'encouragement.", ephemeral: true });
+      }
+    }
+  }
+
+  // -------------------------
   // COMMANDES ADMINISTRATION (Support & Backup)
   // -------------------------
   if (interaction.commandName && interaction.commandName.startsWith("admin-")) {

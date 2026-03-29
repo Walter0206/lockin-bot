@@ -59,6 +59,14 @@ const commands = [
   new SlashCommandBuilder()
     .setName('admin-reset-all')
     .setDescription('🛡️ [ADMIN] RESET GLOBAL : Remise à zéro de tous les membres (Lancement)'),
+  new SlashCommandBuilder()
+    .setName('comeon')
+    .setDescription('Envoyer un message d\'encouragement à un autre membre')
+    .addUserOption(option => 
+      option.setName('destinataire')
+        .setDescription('Le membre à qui envoyer l\'encouragement')
+        .setRequired(true)
+    ),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
